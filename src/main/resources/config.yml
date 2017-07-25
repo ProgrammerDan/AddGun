@@ -1,0 +1,15 @@
+debug: true
+guns:
+ #RailGun:
+ # maxVelocity: 10
+ ## Velocity is in blocks per tick
+ # cooldown: 5000
+ ## Cooldown is in MS (1000 = 1 second)
+ # maxUses: 120
+ ## maximum uses for this gun (until it breaks down)
+ # minUses: 20
+ ## level at which to prevent further use (set to 0 to allow it to be destroyed by use)
+ # damage: 100.0
+ ## hearts of damage to cause from the bullet each hit
+ # passthrough: 3
+ ## number of entities it can damage in a row

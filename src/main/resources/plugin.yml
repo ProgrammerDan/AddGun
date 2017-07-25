@@ -1,0 +1,27 @@
+name: ${project.name}
+version: ${project.version}
+author: [ProgrammerDan]
+main: com.programmerdan.minecraft.addgun.AddGun
+commands:
+ addgun:
+  description: Shows the commands useable for this plugin
+  usage: |
+   The following are commands available for use:
+   /givegun <player> <gun>
+  alias: agun
+  permission: addgun.*
+ givegun:
+  description: Gives player a weapon.
+  usage: |
+   /givegun <player> <gun>
+  alias: ag.give
+  permission: addgun.give
+permissions:
+ addgun.*:
+  description: Gives access to all Addgun commands
+  default: op
+  children:
+   addgun.give: true
+  addgun.give:
+   description: Allows gifting players specific weapons
+   default: op
