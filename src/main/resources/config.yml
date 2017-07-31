@@ -13,3 +13,5 @@ guns:
  ## hearts of damage to cause from the bullet each hit
  # passthrough: 3
  ## number of entities it can damage in a row
+ # blunt: 3.0
+ ## hearts of damage to cause from smacking someone over the head with the gun
