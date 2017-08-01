@@ -29,6 +29,8 @@ public class AddGun  extends JavaPlugin {
 	
 	private Map<String, BasicGun> guns;
 	
+	private int xpPerBottle;
+	
 	@Override
 	public void onEnable() {
 		super.onEnable();
@@ -50,6 +52,10 @@ public class AddGun  extends JavaPlugin {
 		super.onDisable();
 		
 		if (this.playerListener != null) this.playerListener.shutdown();
+	}
+	
+	public int getXpPerBottle() {
+		return xpPerBottle;
 	}
 	
 	public PlayerListener getPlayerListener() {
@@ -82,6 +88,13 @@ public class AddGun  extends JavaPlugin {
 	}
 	
 	private void addGuns(FileConfiguration config) {
+		ConfigurationSection global = config.getConfigurationSection("global");
+		if (global != null) {
+			this.xpPerBottle = global.getInt("xpPerBottle", 10);
+		} else {
+			this.xpPerBottle = 10;
+		}
+		
 		ConfigurationSection guns = config.getConfigurationSection("guns");
 		if (guns == null || guns.getKeys(false) == null) {
 			this.warning("No guns enabled!");
@@ -119,9 +132,9 @@ public class AddGun  extends JavaPlugin {
 					warning("Gun {0} configured, but not found to be available.", gun);
 				} else {
 					possibleGun.configure(guns.getConfigurationSection(gun));
-					if (possibleGun.isListener()) {
-						this.getServer().getPluginManager().registerEvents((Listener) possibleGun, this);
-					}
+					
+					this.getServer().getPluginManager().registerEvents((Listener) possibleGun, this);
+					
 					this.guns.put(possibleGun.getName(), possibleGun);
 					info("Configured gun {0} for use", gun);
 				}

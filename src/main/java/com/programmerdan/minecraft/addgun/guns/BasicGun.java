@@ -1,9 +1,11 @@
 package com.programmerdan.minecraft.addgun.guns;
 
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.event.Listener;
 import org.bukkit.inventory.ItemStack;
 
-public interface BasicGun {
+public interface BasicGun extends Listener {
 
 	public void configure(ConfigurationSection config);
 	
@@ -11,7 +13,10 @@ public interface BasicGun {
 	
 	public ItemStack getMinimalGun();
 	
+	public ItemStack getMinimalBullet();
+	
+	
 	public boolean isGun(ItemStack toCheck);
 	
-	public boolean isListener();
+	public boolean hasBullet(LivingEntity entity);
 }
