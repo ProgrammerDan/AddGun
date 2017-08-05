@@ -8,6 +8,7 @@ commands:
   usage: |
    The following are commands available for use:
    /givegun <player> <gun>
+   /givebullet <player> <gun>
   alias: agun
   permission: addgun.*
  givegun:
@@ -15,6 +16,12 @@ commands:
   usage: |
    /givegun <player> <gun>
   alias: ag.give
+  permission: addgun.give
+ givebullet:
+  description: Gives player a bullet for a weapon.
+  usage: |
+   /givebullet <player> <gun> <amount>
+  alias: ag.gb
   permission: addgun.give
 permissions:
  addgun.*:
@@ -24,4 +31,7 @@ permissions:
    addgun.give: true
   addgun.give:
    description: Allows gifting players specific weapons
+   default: op
+  addgun.data:
+   description: Allows insight into special data as weapons are used
    default: op

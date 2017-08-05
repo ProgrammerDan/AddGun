@@ -6,9 +6,11 @@ import static com.programmerdan.minecraft.addgun.guns.Utilities.computeTotalXP;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -34,7 +36,11 @@ import org.bukkit.event.block.BlockDamageEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.inventory.InventoryType.SlotType;
 import org.bukkit.event.player.PlayerChangedMainHandEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
@@ -44,6 +50,7 @@ import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -51,6 +58,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.metadata.MetadataValueAdapter;
 import org.bukkit.util.Vector;
 
+import com.google.common.collect.Sets;
 import com.programmerdan.minecraft.addgun.AddGun;
 import com.programmerdan.minecraft.addgun.guns.BasicGun;
 import com.programmerdan.minecraft.addgun.guns.HitDigest;
@@ -87,6 +95,10 @@ public class RailGun implements BasicGun {
 	private Map<UUID, Long> sneakingSince = new ConcurrentHashMap<>();
 	private Map<UUID, Long> stillSince = new ConcurrentHashMap<>();
 
+	private Set<UUID> warned = Sets.newConcurrentHashSet();
+	/*
+	 * this keeps track of travel paths for bullets (TODO: refactor)
+	 */
 	private Map<UUID, Location> travelPaths = new ConcurrentHashMap<>();
 	private boolean enabled = false;
 
@@ -99,6 +111,7 @@ public class RailGun implements BasicGun {
 	private int damagePerUse = (int) (1562 / maxUses);
 	private long cooldown = 500;
 	private int xpdraw = 30;
+	private double missRadius = 30;
 	private double damagePerHit = 100.0d;
 	private int passthrough = 3;
 	private double bluntDamage = 3.0d;
@@ -126,6 +139,7 @@ public class RailGun implements BasicGun {
 			damagePerHit = config.getDouble("damage", damagePerHit);
 			bluntDamage = config.getDouble("blunt", bluntDamage);
 			passthrough = config.getInt("passthrough", passthrough);
+			missRadius = config.getDouble("missRadius", missRadius);
 
 			ItemStack preExample = new ItemStack(Material.DIAMOND_HOE, 1);
 			ItemMeta meta = preExample.getItemMeta();
@@ -150,6 +164,8 @@ public class RailGun implements BasicGun {
 			}
 			lores.add(bulletTag());
 			meta.setLore(lores);
+			preExample.setItemMeta(meta);
+			
 			this.bulletExample = preExample;
 		} else {
 			enabled = false;
@@ -358,6 +374,8 @@ public class RailGun implements BasicGun {
 					if (!xp) {
 						return false; // LOSSY!!! someone is playing mindgames, let's screw em up.
 					}
+				} else {
+					xp = true;
 				}
 				player.setLevel(0);
 				player.setExp(0.0f);
@@ -429,7 +447,7 @@ public class RailGun implements BasicGun {
 	 * @return
 	 */
 	private boolean isAlive(ItemStack toCheck) {
-		if (toCheck.getDurability() > (minUses * damagePerUse))
+		if (toCheck.getDurability() < (gunExample.getType().getMaxDurability() - (minUses * damagePerUse)))
 			return true;
 		return false;
 	}
@@ -516,16 +534,24 @@ public class RailGun implements BasicGun {
 				});
 				
 				Location baseLocation = player.getEyeLocation().clone();
-				baseLocation.setYaw((float) (baseLocation.getYaw() + (Math.random() - 0.5) * 5.0 * accuracy));
-				baseLocation.setPitch((float) (baseLocation.getPitch() + (Math.random() - 0.5) * 5.0 * accuracy));
+				float yawJitter = (float) ((Math.random() - 0.5) * 30.0 * accuracy);
+				float pitchJitter = (float) ((Math.random() - 0.5) * 30.0 * accuracy);
+				baseLocation.setYaw(baseLocation.getYaw() + yawJitter);
+				baseLocation.setPitch(baseLocation.getPitch() + pitchJitter);
 				if (accuracy > 0.25) {
 					player.sendMessage(ChatColor.AQUA + getName() + ChatColor.RED + " is heavy! Crouch and hold still to improve accuracy.");
 				} else if (accuracy < 0.01) {
 					// TODO: remove
 					player.sendMessage(ChatColor.AQUA + getName() + ChatColor.GREEN + " is shooting straight, good work.");
 				}
-				Vector baseVector = baseLocation.getDirection().normalize().multiply(this.maxSpeed);
 				
+				Vector baseVector = baseLocation.getDirection().normalize().multiply(this.maxSpeed);
+
+				if (player.hasPermission("addgun.data")) {
+					player.sendMessage(ChatColor.GOLD + String.format("Shot specifics | accuracy: %.5f | yawV: %.5f | pitchV: %.5f | velocity: %.5f,%.5f,%.5f",
+							accuracy, yawJitter, pitchJitter, baseVector.getX(), baseVector.getY(), baseVector.getZ()));
+				}
+
 				bullet.setVelocity(baseVector);
 				
 				AddGun.getPlugin().debug(" Spawning new bullet at {0} with velocity {1}", bullet.getLocation(),
@@ -535,7 +561,7 @@ public class RailGun implements BasicGun {
 				loc.getWorld().spawnParticle(Particle.FLAME, loc, 25);
 				loc.getWorld().playSound(loc, Sound.ENTITY_FIREWORK_LARGE_BLAST_FAR, 10.0f, 2.0f);
 				player.setCooldown(Material.DIAMOND_HOE, (int) (cooldown / 50));
-				item.setDurability((short) (item.getDurability() - damagePerUse));
+				item.setDurability((short) (item.getDurability() + damagePerUse));
 				player.getInventory().setItemInMainHand(item);
 				
 				// jerk player's view back and reset still
@@ -756,8 +782,14 @@ public class RailGun implements BasicGun {
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
 	public void toggleSneakEvent(PlayerToggleSneakEvent event) {
 		if (event.isSneaking()) {
-			sneakingSince.computeIfAbsent(event.getPlayer().getUniqueId(), u -> System.currentTimeMillis());
+			sneakingSince.computeIfAbsent(event.getPlayer().getUniqueId(), u -> {
+				if (event.getPlayer().hasPermission("addgun.data")) { event.getPlayer().sendMessage(ChatColor.GOLD + " sneak started"); }
+				return System.currentTimeMillis();
+			});
 		} else {
+			if (sneakingSince.containsKey(event.getPlayer().getUniqueId()) && event.getPlayer().hasPermission("addgun.data")) { 
+				event.getPlayer().sendMessage(ChatColor.GOLD + " sneak cleared");
+			}
 			sneakingSince.remove(event.getPlayer().getUniqueId());
 		}
 	}
@@ -772,8 +804,14 @@ public class RailGun implements BasicGun {
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
 	public void playerMoveEvent(PlayerMoveEvent event) {
 		if (event.getFrom().distanceSquared(event.getTo()) <= .000001) {
-			stillSince.computeIfAbsent(event.getPlayer().getUniqueId(), u -> System.currentTimeMillis());
+			stillSince.computeIfAbsent(event.getPlayer().getUniqueId(), u -> {
+				if (event.getPlayer().hasPermission("addgun.data")) { event.getPlayer().sendMessage(ChatColor.GOLD + " still started"); }
+				return System.currentTimeMillis(); 
+			});
 		} else {
+			if (stillSince.containsKey(event.getPlayer().getUniqueId()) && event.getPlayer().hasPermission("addgun.data")) {
+				event.getPlayer().sendMessage(ChatColor.GOLD + " still cleared");
+			}
 			stillSince.remove(event.getPlayer().getUniqueId());
 		}
 	}
@@ -783,36 +821,138 @@ public class RailGun implements BasicGun {
 	 * 
 	 * @param event The inventory click event
 	 */
-	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
 	public void equipWeaponEvent(InventoryClickEvent event) {
 		if (!enabled) return;
 		HumanEntity human = event.getWhoClicked();
 		boolean alreadyHasGun = hasGun(human);
 		
-		Inventory inv = event.getInventory();
+		//Inventory inv = event.getInventory();
 		ItemStack current = event.getCurrentItem();
 		ItemStack cursor = event.getCursor();
 		
-		if (!human.getInventory().equals(inv)) {
-			return;
+		if (!isGun(current) & !isGun(cursor)) return;
+		
+		if (human.hasPermission("addgun.data")) {
+			AddGun.getPlugin().debug("InvAction,ClickType,ClickedInv,CurrentItem,CursorItem,HotbarBtn,Inv,RawSlot,Result,Slot,SlotType,View,Who\n{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12}",
+					event.getAction(),event.getClick(),event.getClickedInventory() != null ? event.getClickedInventory().getType() : "null",
+					event.getCurrentItem() != null ? event.getCurrentItem().getType() : "null",
+					event.getCursor() != null ? event.getCursor().getType() : "null",
+					event.getHotbarButton(), event.getInventory() != null ? event.getInventory().getType() : "null", event.getRawSlot(),
+					event.getResult(), event.getSlot(), event.getSlotType(),
+					event.getView() != null ? event.getView().getType() : "null", event.getWhoClicked()
+			);
 		}
 		
-		if ( (Material.AIR.equals(current.getType()) && isGun(cursor)) ||
-				(!Material.AIR.equals(current.getType()) && !Material.AIR.equals(cursor.getType()) && isGun(cursor) && !isGun(current))) {
-			if (alreadyHasGun) {
-				event.setCancelled(true);
-				event.setResult(Result.DENY);
-				human.sendMessage(ChatColor.RED + "A " + ChatColor.AQUA + getName() + ChatColor.RED + " is already in inventory, it's too heavy to carry two!");
-			} else {
-				human.sendMessage(ChatColor.GREEN + "A " + ChatColor.AQUA + getName() + ChatColor.GREEN + " has been equipped!");
-				human.setCooldown(Material.DIAMOND_HOE, (int) (cooldown / 50));
-				cooldowns.put(human.getUniqueId(), System.currentTimeMillis() + cooldown);
+		if (alreadyHasGun) {
+			if (event.getInventory() != null && !InventoryType.CRAFTING.equals(event.getInventory().getType())) {
+				/**
+				 * event.getView() != null && InventoryType.CRAFTING.equals(event.getView().getType()) && 
+				 */
+				if (event.getClickedInventory() != null && !InventoryType.PLAYER.equals(event.getClickedInventory().getType())) {
+					// Player has some inventory open, and they do a click in that other inventory.
+					// So for these, we want to identify cases where the player has the item in cursor and is placing it into their inventory.
+					// if they don't have one yet, we're OK to continue, otherwise, lets check.
+					switch(event.getAction()) {
+					case MOVE_TO_OTHER_INVENTORY: // shift-click
+					case HOTBAR_SWAP: // press # key while hovered
+					case HOTBAR_MOVE_AND_READD: // press # key where target has item
+						if (isGun(current)) {
+							event.setResult(Result.DENY);
+						}
+						break;
+					default: 
+						break;
+					}
+				/*} else if (event.getView() != null && !InventoryType.CRAFTING.equals(event.getView().getType()) && event.getClickedInventory() != null && !InventoryType.PLAYER.equals(event.getClickedInventory().getType())) {
+					// Player has some inventory open, and they do a click in that other inventory.
+					// So for these, we want to identify cases where the player has the item in cursor and is placing it into their inventory.
+					// if they don't have one yet, we're OK to continue, otherwise, lets check.
+					switch(event.getAction()) {
+					case MOVE_TO_OTHER_INVENTORY: // shift-click
+						if (isGun(current)) {
+							event.setResult(Result.DENY);
+						}
+						break;
+					default: 
+						break;
+					}*/
+				} else if (event.getClickedInventory() != null && InventoryType.PLAYER.equals(event.getClickedInventory().getType())) {
+					switch(event.getAction()) {
+					case PLACE_ALL:
+					case PLACE_ONE:
+					case PLACE_SOME:
+					case SWAP_WITH_CURSOR:
+						if (isGun(cursor)) {
+							event.setResult(Result.DENY);
+						}
+						break;
+					default:
+						break;
+					}
+				}
 			}
-		} else if (!Material.AIR.equals(current.getType()) && !Material.AIR.equals(cursor.getType()) && isGun(cursor) && isGun(current)) {
-			human.sendMessage(ChatColor.GREEN + "Swapping out prior " + ChatColor.AQUA + getName() + ChatColor.GREEN + " and equipping a different one!");
-			human.setCooldown(Material.DIAMOND_HOE, (int) (cooldown / 50));
-			cooldowns.put(human.getUniqueId(), System.currentTimeMillis() + cooldown);
 		}
+		if (Result.DENY.equals(event.getResult())) {
+			human.sendMessage(ChatColor.RED + "A " + ChatColor.AQUA + getName() + ChatColor.RED + " is already in inventory, it's too heavy to carry two!");
+		} else {
+			boolean isEquip = false;
+			switch(event.getAction()) {
+			case PLACE_ALL:
+			case PLACE_ONE:
+			case PLACE_SOME:
+			case SWAP_WITH_CURSOR:
+				if (isGun(cursor) && SlotType.QUICKBAR.equals(event.getSlotType())) {
+					isEquip = true;
+				}
+				break;
+			case MOVE_TO_OTHER_INVENTORY:
+			case HOTBAR_MOVE_AND_READD:
+			case HOTBAR_SWAP:
+				if (isGun(current)) {
+					isEquip = true;
+				}
+				break;
+			default:
+				break;
+				
+			}
+			if (isEquip) {
+				Bukkit.getScheduler().runTask(AddGun.getPlugin(), new Runnable() {
+					@Override
+					public void run() {
+						PlayerInventory inv = human.getInventory();
+						for (int i = 0; i < 9; i++) { // check hotbar
+							if (isGun(inv.getItem(i))) {
+								human.sendMessage(ChatColor.GREEN + "A " + ChatColor.AQUA + getName() + ChatColor.GREEN + " has been equipped!");
+								human.setCooldown(Material.DIAMOND_HOE, (int) (cooldown / 50));
+								cooldowns.put(human.getUniqueId(), System.currentTimeMillis() + cooldown);
+								break;
+							}
+						}
+					}
+				});
+			}
+			
+		}
+	}
+	
+	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+	public void equipWeaponEvent(InventoryDragEvent event) {
+		if (!enabled) return;
+		HumanEntity human = event.getWhoClicked();
+		boolean alreadyHasGun = hasGun(human);
+		
+		Inventory inv = event.getInventory();
+		ItemStack prior = event.getOldCursor();
+		
+		// Don't really care what sort of drag, if we have a gun in inv and this was a gun, deny.
+		if (alreadyHasGun && (inv != null && !InventoryType.PLAYER.equals(inv.getType()))
+				&& (prior != null && isGun(prior))) {
+			event.setResult(Result.DENY);
+			// yes this will prevent drag style of weapon in chest invs. Oh well.
+		}
+		
 	}
 
 	/**
@@ -822,10 +962,13 @@ public class RailGun implements BasicGun {
 	 */
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
 	public void pickupWeaponEvent(EntityPickupItemEvent event) {
-		if (!enabled) return;
-		if (hasGun(event.getEntity())) {
+		if (!enabled || event.getItem() == null) return;
+		if (isGun(event.getItem().getItemStack()) && hasGun(event.getEntity())) {
 			event.setCancelled(true);
-			event.getEntity().sendMessage(ChatColor.RED + "A " + ChatColor.AQUA + getName() + ChatColor.RED + " is already in inventory, it's too heavy to carry two!");
+			if (!warned.contains(event.getEntity().getUniqueId())) {
+				event.getEntity().sendMessage(ChatColor.RED + "A " + ChatColor.AQUA + getName() + ChatColor.RED + " is already in inventory, it's too heavy to carry two!");
+				warned.add(event.getEntity().getUniqueId());
+			}
 		}
 	}
 }

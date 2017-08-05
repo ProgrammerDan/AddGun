@@ -1,17 +1,24 @@
 debug: true
+global:
+ xpPerBottle: 10
+ # Use this to define how guns that use XP, treat XP bottles.
 guns:
  #RailGun:
- # maxVelocity: 10
+ # maxVelocity: 1000
  ## Velocity is in blocks per tick
- # cooldown: 5000
+ # cooldown: 15000
  ## Cooldown is in MS (1000 = 1 second)
- # maxUses: 120
+ # maxUses: 50
  ## maximum uses for this gun (until it breaks down)
- # minUses: 20
+ # minUses: 5
  ## level at which to prevent further use (set to 0 to allow it to be destroyed by use)
- # damage: 100.0
+ # damage: 1000.0
  ## hearts of damage to cause from the bullet each hit
- # passthrough: 3
+ # passthrough: 10
  ## number of entities it can damage in a row
+ # missRadius: 45
+ ## Jitter angular miss (in degrees) that is randomly applied on firing, in pitch and yaw
  # blunt: 3.0
  ## hearts of damage to cause from smacking someone over the head with the gun
+ # xpPerShot: 120
+ ## XP to take from inventory or player's XP bar to actually launch a projectile
