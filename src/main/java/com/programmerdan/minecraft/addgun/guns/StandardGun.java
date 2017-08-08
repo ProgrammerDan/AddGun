@@ -1,5 +1,7 @@
 package com.programmerdan.minecraft.addgun.guns;
 
+import static com.programmerdan.minecraft.addgun.guns.Utilities.detailedHitBoxLocation;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -8,13 +10,29 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
+import org.bukkit.World;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Damageable;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Projectile;
+import org.bukkit.entity.SmallFireball;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.metadata.MetadataValueAdapter;
+import org.bukkit.projectiles.ProjectileSource;
+import org.bukkit.util.Vector;
 
 import com.google.common.collect.Sets;
+import com.programmerdan.minecraft.addgun.AddGun;
+import com.programmerdan.minecraft.addgun.ammo.Bullet;
 
 public abstract class StandardGun implements Listener {
-
 	/**
 	 * This can be used to track any warnings sent to players and not resend
 	 */
@@ -24,6 +42,13 @@ public abstract class StandardGun implements Listener {
 	 * this keeps track of travel paths for bullets (TODO: refactor)
 	 */
 	private Map<UUID, Location> travelPaths = new ConcurrentHashMap<>();
+	
+	/**
+	 * This keeps track of which Bullet type is represented by the inflight bullet.
+	 * 
+	 * TODO: evaluate refactoring and adding Bullet type as metadata.
+	 */
+	private Map<UUID, Bullet> inFlightBullets = new ConcurrentHashMap<>();
 	
 	/**
 	 * Is this gun enabled?
@@ -75,12 +100,7 @@ public abstract class StandardGun implements Listener {
 	 */
 	private int damagePerUse = (int) (1562 / maxUses);
 	
-	/**
-	 * If the gun requires XP (energy) to fire... default no
-	 */
-	private int xpDraw = 0;
-	
-	
+
 	
 	/**
 	 * When firing the gun and still / sneak isn't maximized, potentially angular jitter
@@ -90,14 +110,9 @@ public abstract class StandardGun implements Listener {
 	 * Some guns are just innacurate .. minimum angular jitter regardless of stillness / sneak
 	 */
 	private double minMissRadius = 0;
-	/**
-	 * Typical damage per hit
-	 */
-	private double avgHitDamage = 20.0d;
-	/**
-	 * Damage variation
-	 */
-	private double spreadHitDamage = 5.0d;
+
+	// dmg is from bullet
+	
 	/**
 	 * or smack nerd over the head?
 	 */
@@ -110,19 +125,35 @@ public abstract class StandardGun implements Listener {
 	private String name;
 	
 	/**
-	 * Does this gun support clips of bullets to fire?
+	 * Every gun has this tag somewhat hidden, it's used to quickly identify if a managed gun or not
 	 */
-	private boolean usesClips = false;
+	private String tag;
 	
 	/**
-	 * Does this gun use bullets to fire?
+	 * Every fired bullet has this tag somewhat hidden, it's used to identify bullets. As is location tracks.
 	 */
-	private boolean usesBullets = true;
+	private String bulletTag;
+	
+	/**
+	 * Does this gun use clips, bullets, or autofeed from inventory to fire?
+	 */
+	private AmmoType ammoSource = AmmoType.INVENTORY;
+	
+	/**
+	 * If BULLET, determines the max bullets that can be loaded into the weapon.
+	 * CLIP is always 1, and INVENTORY is 0.
+	 */
+	private int maxAmmo = 0;
 	
 	/**
 	 * Does this gun use XP to fire?
 	 */
 	private boolean usesXP = false;
+	/**
+	 * If the gun requires XP (energy) to fire... default no
+	 */
+	private int xpDraw = 0;
+	
 	
 	/**
 	 * Does this gun have a cooldown?
@@ -161,6 +192,10 @@ public abstract class StandardGun implements Listener {
 	protected StandardGun(String name) {
 		this.gunExample = this.generateGun();
 		this.name = name;
+		tag = ChatColor.BLACK + "Gun: "
+				+ Integer.toHexString(this.getName().hashCode() + this.getName().length());
+		bulletTag = ChatColor.BLACK + "Bullet: "
+				+ Integer.toHexString(this.getName().hashCode() + this.getName().length());
 	}
 	
 	public abstract ItemStack generateGun();
@@ -243,22 +278,6 @@ public abstract class StandardGun implements Listener {
 
 	public void setMinMissRadius(double minMissRadius) {
 		this.minMissRadius = minMissRadius;
-	}
-
-	public double getAvgHitDamage() {
-		return avgHitDamage;
-	}
-
-	public void setAvgHitDamage(double avgHitDamage) {
-		this.avgHitDamage = avgHitDamage;
-	}
-
-	public double getSpreadHitDamage() {
-		return spreadHitDamage;
-	}
-
-	public void setSpreadHitDamage(double spreadHitDamage) {
-		this.spreadHitDamage = spreadHitDamage;
 	}
 
 	public double getBluntDamage() {
@@ -345,5 +364,219 @@ public abstract class StandardGun implements Listener {
 		return name;
 	}
 	
+	/// NOW INTO GENERIC HANDLING CODE ///
 	
+	/**
+	 * Subclasses are encouraged to override this.
+	 * Just makes a sounds and spawns a particle. Note that if you're OK with this but still want
+	 * to do some custom stuff on a nearmiss (perhaps jerk the entity away or something? I dunno)
+	 * then consider using {@link #postMiss(HitDigest, Entity, Projectile, Projectile, Bullet)}
+	 * instead, which gives you this same detail as well as the projectile spawned to "keep going"
+	 * post-miss.
+	 * 
+	 * @param missData Data matrix showing miss
+	 * @param missed What entity was almost hit
+	 * @param bullet The bullet data
+	 */
+	public void nearMiss(HitDigest missData, Entity missed, Projectile bullet, Bullet type) {
+		Location end = missData.hitLocation;
+		World world = end.getWorld();
+		world.playSound(end, Sound.BLOCK_GLASS_HIT, 1.0f, 1.5f);
+		world.spawnParticle(Particle.SMOKE_NORMAL, end, 35);
+	}
+	
+	/**
+	 * Subclasses are encouraged to override this.
+	 * Default behavior is to eject off of what you are riding, play a sound and spawn particle.
+	 *
+	 * 
+	 * @param hitData Data matrix showing hit
+	 * @param hit What entity was hit
+	 * @param bullet The bullet data.
+	 */
+	public void preHit(HitDigest hitData, Entity hit, Projectile bullet, Bullet type) {
+		Location end = hitData.hitLocation;
+		World world = end.getWorld();
+		hit.eject(); // eject the player
+		hit.getPassengers().forEach(e -> e.eject()); // and ejects your passengers
+		// make a new sound where it hits.
+		world.playSound(end, Sound.ENTITY_FIREWORK_BLAST, 1.0f, 1.5f);
+		// make a splash
+		world.spawnParticle(Particle.SMOKE_NORMAL, end, 35);
+	}
+	
+	/**
+	 * Override this class, you can use it to provide particle effects along travel path. 
+	 * 
+	 * It is called after all other handling is done. Keep it lightweight
+	 * 
+	 * @param start The start location of flight
+	 * @param end The end location of impact / miss
+	 * @param type the type of bullet in play
+	 * @param endOfFlight is the bullet still flying after this or has it impacted?
+	 */
+	abstract void flightPath(Location start, Location end, Bullet type, boolean endOfFlight);
+	
+	/**
+	 * Override this class, you use it to manage what happens when a non-Damageable is hit.
+	 * 
+	 * @param hitData the Data matrix showing hit information
+	 * @param hit the non-damageable entity that was struck
+	 * @param bullet The "Projectile" bullet doing the hitting
+	 * @param bulletType The "Bullet" type of the projectile
+	 */
+	abstract void manageHit(HitDigest hitData, Entity hit, Projectile bullet, Bullet bulletType);
+
+	/**
+	 * Override this class, you use it to manage what happens when something damageable is hit.
+	 * 
+	 * @param hitData the Data matrix showing hit information
+	 * @param hit the damageable entity that was struck
+	 * @param bullet the "Projectile" bullet doing the hitting
+	 * @param bulletType the "Bullet" type of the projectile
+	 */
+	abstract void managedDamage(HitDigest hitData, Damageable hit, Projectile bullet, Bullet bulletType);
+
+
+	/**
+	 * Any post-hit cleanup can be handled here. This would be stuff not associated with manageHit or manageDamage.
+	 * 
+	 *  Provided as a handy hook, but fine to leave as no-op.
+	 *  
+	 * @param hitData the Data matrix describing hit information
+	 * @param hit the Entity that was hit, after handling manageHit
+	 * @param bullet the "Projectile" bullet doing the hitting
+	 * @param bulletType the "Bullet" type of the projectile.
+	 */
+	abstract void postHit(HitDigest hitData, Entity hit, Projectile bullet, Bullet bulletType);
+
+	/**
+	 * Any post-miss cleanup can be handled here. Misses will automatically run this function, and
+	 * it includes pre- and post-miss data.
+	 * 
+	 * @param hitData the Data matrix describing miss information
+	 * @param hit the Entity that was missed, after miss management and continue projectile spawn.
+	 * @param bullet the "Projectile" bullet doing the original missing
+	 * @param continueBullet Since the original projectile is removed, this is a "continue" bullet spawned _after_ the miss entity.
+	 * @param bulletType the "Bullet" type of the projectiles.
+	 */
+	abstract void postMiss(HitDigest hitData, Entity hit, Projectile bullet, Projectile continueBullet,
+			Bullet bulletType);
+	
+	
+	/**
+	 * A basic shoot method, it _can_ be overridden but take care.
+	 * Handles passing the bullet to its BulletType for configuration, sets shooter, velocity, etc.
+	 * 
+	 * @param begin The location to shoot from
+	 * @param bulletType the Bullet type of this bullet
+	 * @param shooter the entity shooting
+	 * @param velocity the velocity to use as base for this shooting, if any
+	 * @param overrideVelocity if true, use the passed velocity and override anything set up by the bullet type.
+	 * @return the new Projectile that has been unleashed.
+	 */
+	public Projectile shoot(Location begin, Bullet bulletType, ProjectileSource shooter, Vector velocity, boolean overrideVelocity) {
+		World world = begin.getWorld();
+		Projectile newBullet = world.spawn(begin, bulletType.getProjectileType() );
+		newBullet.setCustomName(this.bulletTag);
+		newBullet.setBounce(false);
+		newBullet.setGravity(true);
+		newBullet.setShooter(newBullet.getShooter());
+		
+		bulletType.configureBullet(newBullet, world, shooter, velocity);
+		
+		if (overrideVelocity) {
+			newBullet.setVelocity(velocity);
+		}
+
+		travelPaths.put(newBullet.getUniqueId(), begin);
+		inFlightBullets.put(newBullet.getUniqueId(), bulletType);
+		
+		return newBullet;
+	}
+	
+	
+	/**
+	 * It hit something probably!
+	 * 
+	 * @param event the hit event.
+	 */
+	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+	public void gunBulletHitEvent(EntityDamageByEntityEvent event) {
+		if (!(event.getDamager() instanceof Projectile)) return;
+		Projectile bullet = (Projectile) event.getDamager();
+		
+		if (!bullet.getName().equals(this.bulletTag))
+			return;
+		
+		Location begin = this.travelPaths.remove(bullet.getUniqueId());
+		Bullet bulletType = this.inFlightBullets.remove(bullet.getUniqueId());
+		if (begin == null || bulletType == null) {
+			AddGun.getPlugin().debug("Warning: bullet {1} claiming to be {0} but untracked -- from unloaded chunk?", bulletTag, bullet.getUniqueId());
+			bullet.remove();
+			event.setCancelled(true);
+			return;
+		}
+		
+		if (!bullet.getType().equals(bulletType.getEntityType())) {
+			AddGun.getPlugin().debug("Bullet {1} matching {0} but has different type?!", bulletType.getName(), bullet.getUniqueId());
+			bullet.remove();
+			event.setCancelled(true);
+			return;
+		}
+
+		Entity hit = event.getEntity();
+
+		HitDigest whereEnd = detailedHitBoxLocation(bullet.getLocation().clone(), bullet.getVelocity(), hit);
+		Location end = whereEnd.hitLocation;
+
+		if (HitPart.MISS.equals(whereEnd.nearestHitPart)) {
+			nearMiss(whereEnd, hit, bullet, bulletType);
+		} else {
+			preHit(whereEnd, hit, bullet, bulletType);
+		}
+		
+		// in general we remove this instance of the bullet from the world, and cancel the event so any "normal" damage doesn't happen
+		bullet.remove();
+		event.setCancelled(true); // hmmm. TODO: check
+
+		if (HitPart.MISS.equals(whereEnd.nearestHitPart)) {
+			Location newBegin = end.clone();
+			if (hit instanceof Damageable) {
+				Damageable dhit = (Damageable) hit;
+				newBegin.add(bullet.getVelocity().normalize().multiply(dhit.getWidth() * 2));
+			} else {
+				newBegin.add(bullet.getVelocity().normalize().multiply(1.42)); // diagonalize!
+			}
+			AddGun.getPlugin().debug(" Just Missed at location {0}, spawning continue at {1} with velocity {2}", 
+					end, newBegin, bullet.getVelocity());
+			
+			Projectile continueBullet = shoot(newBegin, bulletType, bullet.getShooter(), bullet.getVelocity(), true);
+			
+			postMiss(whereEnd, hit, bullet, continueBullet, bulletType);
+
+			flightPath(begin, end, bulletType, false);
+		} else {
+			if (hit instanceof Damageable) {
+				Damageable dhit = (Damageable) hit;
+				AddGun.getPlugin().debug("Processing damage for {0} at {1} due to {2} intersection with {3} bullet", dhit,
+						dhit.getLocation(), whereEnd.nearestHitPart, bulletType.getName());
+				managedDamage(whereEnd, dhit, bullet, bulletType);
+			} else {
+				AddGun.getPlugin().debug("Processing damage for {0} due to intersection with {1} bullet", hit, bulletType.getName());
+				manageHit(whereEnd, hit, bullet, bulletType);
+			}
+			
+			postHit(whereEnd, hit, bullet, bulletType);
+			
+			flightPath(begin, end, bulletType, true);
+		}
+	}
+	
+
+	public enum AmmoType {
+		CLIP,
+		BULLET,
+		INVENTORY
+	}
 }
