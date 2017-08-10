@@ -11,6 +11,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -63,6 +64,13 @@ public class PlayerListener implements Listener {
 		return sneakingSince.get(player);
 	}
 	
+	/**
+	 * External hard reset of stillness. Typically used when firing a gun.
+	 * @param player the UUID of the player to reset
+	 */
+	public void resetStillSince(UUID player) {
+		sneakingSince.put(player, System.currentTimeMillis());
+	}
 	
 	/**
 	 * Keeps track of player sneaking; if they are sneaking, we track when the
@@ -138,5 +146,5 @@ public class PlayerListener implements Listener {
 			}
 		}
 	}
-	
+
 }

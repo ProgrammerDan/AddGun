@@ -5,7 +5,7 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.ItemStack;
 
-public interface BasicGun extends Listener {
+public interface BasicGun {
 
 	public void configure(ConfigurationSection config);
 	

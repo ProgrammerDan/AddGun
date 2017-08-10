@@ -1,7 +1,5 @@
 package com.programmerdan.minecraft.addgun.guns;
 
-import static com.programmerdan.minecraft.addgun.guns.Utilities.detailedHitBoxLocation;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -10,46 +8,45 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Damageable;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.HumanEntity;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.entity.SmallFireball;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
+import org.bukkit.inventory.EntityEquipment;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.metadata.MetadataValueAdapter;
 import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.util.Vector;
 
 import com.google.common.collect.Sets;
 import com.programmerdan.minecraft.addgun.AddGun;
+import com.programmerdan.minecraft.addgun.ArmorType;
+import com.programmerdan.minecraft.addgun.ammo.AmmoType;
 import com.programmerdan.minecraft.addgun.ammo.Bullet;
+import com.programmerdan.minecraft.addgun.ammo.Clip;
 
-public abstract class StandardGun implements Listener {
-	/**
-	 * This can be used to track any warnings sent to players and not resend
-	 */
-	private Map<UUID, String> warned = new ConcurrentHashMap<>();
+import static com.programmerdan.minecraft.addgun.guns.Utilities.getArmorType;
 
-	/**
-	 * this keeps track of travel paths for bullets (TODO: refactor)
-	 */
-	private Map<UUID, Location> travelPaths = new ConcurrentHashMap<>();
-	
-	/**
-	 * This keeps track of which Bullet type is represented by the inflight bullet.
-	 * 
-	 * TODO: evaluate refactoring and adding Bullet type as metadata.
-	 */
-	private Map<UUID, Bullet> inFlightBullets = new ConcurrentHashMap<>();
-	
+public class StandardGun implements BasicGun {
 	/**
 	 * Is this gun enabled?
 	 */
@@ -71,14 +68,19 @@ public abstract class StandardGun implements Listener {
 	private List<String> allClips = null;
 	
 	/**
-	 * max V in meters (blocks) / s -- this is gun's intrinsic, could be modified by bullets.
+	 * max V in meters (blocks) / t -- this is gun's intrinsic, could be modified by bullets.
 	 */
 	private double maxSpeed = 200.0;
 	
 	/**
-	 * min V in meters (blocks) / s
+	 * min V in meters (blocks) / t
 	 */
 	private double minSpeed = 180.0;
+	
+	/**
+	 * Internal avg V / t
+	 */
+	private double avgSpeed = (maxSpeed + minSpeed) / 2.0;
 	
 	/**
 	 * Max times the gun can be fired before repair.
@@ -167,12 +169,15 @@ public abstract class StandardGun implements Listener {
 	 * Cooldown between uses in ms
 	 */
 	private long cooldown = 500;
+
+	/**
+	 * This can be used to track any warnings sent to players and not resend
+	 */
+	private Map<UUID, String> warned = new ConcurrentHashMap<>();
 	/**
 	 * If the gun uses a cooldown, tracks which players are in cooldown and since when.
 	 */
 	private Map<UUID, Long> cooldowns = new ConcurrentHashMap<>();
-
-	
 	
 	/**
 	 * Should this gun be limited to a single gun in inventory?
@@ -289,19 +294,19 @@ public abstract class StandardGun implements Listener {
 	}
 
 	public boolean isUsesClips() {
-		return usesClips;
-	}
-
-	public void setUsesClips(boolean usesClips) {
-		this.usesClips = usesClips;
+		return AmmoType.CLIP.equals(this.ammoSource);
 	}
 
 	public boolean isUsesBullets() {
-		return usesBullets;
+		return AmmoType.BULLET.equals(this.ammoSource);
 	}
 
-	public void setUsesBullets(boolean usesBullets) {
-		this.usesBullets = usesBullets;
+	public void setAmmoSource(AmmoType ammo) {
+		this.ammoSource = ammo;
+	}
+	
+	public AmmoType getAmmoSource() {
+		return this.ammoSource;
 	}
 
 	public boolean isUsesXP() {
@@ -415,7 +420,9 @@ public abstract class StandardGun implements Listener {
 	 * @param type the type of bullet in play
 	 * @param endOfFlight is the bullet still flying after this or has it impacted?
 	 */
-	abstract void flightPath(Location start, Location end, Bullet type, boolean endOfFlight);
+	public void flightPath(Location start, Location end, Bullet type, boolean endOfFlight) {
+		// no special flight path stuff. maybe a whizzing sound?
+	}
 	
 	/**
 	 * Override this class, you use it to manage what happens when a non-Damageable is hit.
@@ -425,7 +432,13 @@ public abstract class StandardGun implements Listener {
 	 * @param bullet The "Projectile" bullet doing the hitting
 	 * @param bulletType The "Bullet" type of the projectile
 	 */
-	abstract void manageHit(HitDigest hitData, Entity hit, Projectile bullet, Bullet bulletType);
+	public void manageHit(HitDigest hitData, Entity hit, Projectile bullet, Bullet bulletType) {
+		// do nothing in standard gun.
+		Location end = hitData.hitLocation;
+		World world = end.getWorld();
+		world.playSound(end, Sound.BLOCK_GLASS_HIT, 1.0f, 1.5f);
+		world.spawnParticle(Particle.SMOKE_NORMAL, end, 35);
+	}
 
 	/**
 	 * Override this class, you use it to manage what happens when something damageable is hit.
@@ -435,7 +448,103 @@ public abstract class StandardGun implements Listener {
 	 * @param bullet the "Projectile" bullet doing the hitting
 	 * @param bulletType the "Bullet" type of the projectile
 	 */
-	abstract void managedDamage(HitDigest hitData, Damageable hit, Projectile bullet, Bullet bulletType);
+	public void manageDamage(HitDigest hitData, Damageable hit, Projectile bullet, Bullet bulletType) {
+		// TODO: manage armor and armor bypass
+		double median = bulletType.getAvgHitDamage(hitData.nearestHitPart);
+		double twosigma = bulletType.getSpreadHitDamage(hitData.nearestHitPart);
+		
+		Vector speed = bullet.getVelocity();
+		double absVelocity = speed.length();
+		// speed is randomly uniform between min and max, we now approximate it into a gaussian distribution using a shaped sigmoid
+		double variance = (absVelocity - (this.avgSpeed)) / ((this.maxSpeed - this.minSpeed + 1) / 4.0); // variance is now "centered" on average speed, in range [-avg, +avg]
+		
+		double baseRealDamage = (twosigma / 4) * (1 + (variance / Math.sqrt( 1 + (variance* variance)))) + median;
+
+		double finalDamage = baseRealDamage;
+		ItemStack armorHit = null;
+		ItemStack shield = null;
+		double shieldEffectiveness = 0.0d;
+		
+		if (hit instanceof LivingEntity) {
+			LivingEntity living = (LivingEntity) hit;
+			EntityEquipment equipment = living.getEquipment();
+			// now reductions?	
+			switch(hitData.nearestHitPart) {
+			case BODY:
+			case CHEST_PLATE:
+			case LEFT_ARM:
+			case LEFT_FOOT:
+			case LEFT_HAND:
+			case RIGHT_ARM:
+			case RIGHT_FOOT:
+			case RIGHT_HAND:// all variants on body atm
+				armorHit = equipment.getLeggings();
+				shield = equipment.getItemInOffHand();
+				break;
+			case BOOTS:
+			case FEET: // just feet
+				armorHit = equipment.getBoots();
+				break;
+			case HEAD:
+			case HELMET: // just head
+				armorHit = equipment.getHelmet();
+				shield = equipment.getItemInOffHand();
+				break;
+			case LEGGINGS:
+			case LEFT_LEG:
+			case RIGHT_LEG: 
+			case LEGS: // just legs
+				armorHit = equipment.getLeggings();
+				break;
+			case MISS: // no hit?
+				nearMiss(hitData, hit, bullet, bulletType);
+				break;
+			default:
+				break;
+			}
+			
+			if (shield != null && Material.SHIELD.equals(shield.getType())) {
+				if (hit instanceof HumanEntity) {
+					HumanEntity human = (HumanEntity) hit;
+					if (human.isBlocking()) {
+						shieldEffectiveness = 1.0d;
+					} else if (human.isHandRaised()) {
+						shieldEffectiveness = 0.5d;
+					}
+				}
+			} else {
+				shield = null;
+			}
+		}
+		
+		if (armorHit != null) {
+			// check bypass?
+			
+			// check armor type
+			ArmorType grade = getArmorType(armorHit.getType()); 
+			int protLevel = armorHit.getEnchantmentLevel(Enchantment.PROTECTION_ENVIRONMENTAL);
+			int projLevel = armorHit.getEnchantmentLevel(Enchantment.PROTECTION_PROJECTILE);
+			
+			// TODO: calculate
+		}
+		
+		if (shield != null) {
+			// check bypass?
+			double angle = Math.toDegrees(hit.getLocation().getDirection().angle(speed));
+			// TODO?!?! check this
+			if (angle >= -135 && angle < 135) {
+				// no deflection!
+				shieldEffectiveness = 0.0d;
+			}
+			
+			finalDamage *= (1.0 - shieldEffectiveness);
+		}
+		
+		//TODO: player states? custom shit? event?
+		
+		hit.damage(finalDamage, bullet);
+	}
+	
 
 
 	/**
@@ -494,89 +603,104 @@ public abstract class StandardGun implements Listener {
 		
 		return newBullet;
 	}
-	
+
+	/* Shooting helpers */
 	
 	/**
-	 * It hit something probably!
+	 * This computes if enough XP is present to fire the gun and bullet that's chambered
 	 * 
-	 * @param event the hit event.
+	 * @param entity the shooter
+	 * @param bullet the Bullet type that's chambered
+	 * @return true if enough fuel, false otherwise
 	 */
-	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
-	public void gunBulletHitEvent(EntityDamageByEntityEvent event) {
-		if (!(event.getDamager() instanceof Projectile)) return;
-		Projectile bullet = (Projectile) event.getDamager();
+	boolean hasFuel(LivingEntity entity, Bullet bullet) {
+		if (!this.usesXP && bullet.getUsesXP()) return true; // no xp needs.
 		
-		if (!bullet.getName().equals(this.bulletTag))
-			return;
+		int totalDraw = this.xpDraw + bullet.getXPDraw();
 		
-		Location begin = this.travelPaths.remove(bullet.getUniqueId());
-		Bullet bulletType = this.inFlightBullets.remove(bullet.getUniqueId());
-		if (begin == null || bulletType == null) {
-			AddGun.getPlugin().debug("Warning: bullet {1} claiming to be {0} but untracked -- from unloaded chunk?", bulletTag, bullet.getUniqueId());
-			bullet.remove();
-			event.setCancelled(true);
-			return;
+		int xpNeeds = computeTotalXP(entity) - totalDraw; 
+
+		if (xpNeeds < 0 && (xpNeeds + AddGun.getPlugin().getXpPerBottle() * getInvXp(entity) < 0)) {
+			return false;
 		}
 		
-		if (!bullet.getType().equals(bulletType.getEntityType())) {
-			AddGun.getPlugin().debug("Bullet {1} matching {0} but has different type?!", bulletType.getName(), bullet.getUniqueId());
-			bullet.remove();
-			event.setCancelled(true);
-			return;
-		}
-
-		Entity hit = event.getEntity();
-
-		HitDigest whereEnd = detailedHitBoxLocation(bullet.getLocation().clone(), bullet.getVelocity(), hit);
-		Location end = whereEnd.hitLocation;
-
-		if (HitPart.MISS.equals(whereEnd.nearestHitPart)) {
-			nearMiss(whereEnd, hit, bullet, bulletType);
-		} else {
-			preHit(whereEnd, hit, bullet, bulletType);
-		}
-		
-		// in general we remove this instance of the bullet from the world, and cancel the event so any "normal" damage doesn't happen
-		bullet.remove();
-		event.setCancelled(true); // hmmm. TODO: check
-
-		if (HitPart.MISS.equals(whereEnd.nearestHitPart)) {
-			Location newBegin = end.clone();
-			if (hit instanceof Damageable) {
-				Damageable dhit = (Damageable) hit;
-				newBegin.add(bullet.getVelocity().normalize().multiply(dhit.getWidth() * 2));
-			} else {
-				newBegin.add(bullet.getVelocity().normalize().multiply(1.42)); // diagonalize!
-			}
-			AddGun.getPlugin().debug(" Just Missed at location {0}, spawning continue at {1} with velocity {2}", 
-					end, newBegin, bullet.getVelocity());
-			
-			Projectile continueBullet = shoot(newBegin, bulletType, bullet.getShooter(), bullet.getVelocity(), true);
-			
-			postMiss(whereEnd, hit, bullet, continueBullet, bulletType);
-
-			flightPath(begin, end, bulletType, false);
-		} else {
-			if (hit instanceof Damageable) {
-				Damageable dhit = (Damageable) hit;
-				AddGun.getPlugin().debug("Processing damage for {0} at {1} due to {2} intersection with {3} bullet", dhit,
-						dhit.getLocation(), whereEnd.nearestHitPart, bulletType.getName());
-				managedDamage(whereEnd, dhit, bullet, bulletType);
-			} else {
-				AddGun.getPlugin().debug("Processing damage for {0} due to intersection with {1} bullet", hit, bulletType.getName());
-				manageHit(whereEnd, hit, bullet, bulletType);
-			}
-			
-			postHit(whereEnd, hit, bullet, bulletType);
-			
-			flightPath(begin, end, bulletType, true);
-		}
+		return true;
 	}
 	
+	/**
+	 * Checks if the proferred item is a gun.
+	 * 
+	 * @param toCheck the item to check if this gun
+	 * @return true if gun, false otherwise
+	 */
+	@Override	
+	public boolean isGun(ItemStack toCheck) {
+		if (!enabled || toCheck == null)
+			return false;
 
-	public enum AmmoType {
-		CLIP,
-		BULLET,
-		INVENTORY
+		if (!gunExample.getType().equals(toCheck.getType()))
+			return false;
+
+		if (!toCheck.hasItemMeta())
+			return false;
+
+		ItemMeta meta = toCheck.getItemMeta();
+
+		if (meta.getLore().contains(tag))
+			return true;
+
+		return false;
+	}
+	
+	/**
+	 * Checks if this gun has enough health to still fire
+	 * 
+	 * @param toCheck Does _not_ confirm if gun, just check durability.
+	 * @return true if alive, false otherwise.
+	 */
+	private boolean isAlive(ItemStack toCheck) {
+		if (toCheck.getDurability() < (gunExample.getType().getMaxDurability() - (this.maxUses * damagePerUse)))
+			return true;
+		return false;
+	}
+	
+	/**
+	 * Checks if this gun has bullets / clips with bullets
+	 * 
+	 * @param toCheck Does _not_ confirm if gun, just checks for ammo signals.
+	 * @return true if ammo found, false otherwise. Does not check if ammo works or not.
+	 */
+	public boolean isLoaded(ItemStack toCheck) {
+		if (!toCheck.hasItemMeta())
+			return false;
+		
+		ItemMeta meta = toCheck.getItemMeta();
+		
+		if (meta.getLore().contains("Bullets Loaded:")) {
+			Bullet bulletType = Bullets.getBulletsFromMeta(meta);
+			return bulletType != null;
+		} else if (meta.getLore().contains("Clip loaded:")) {
+			Clip clip = Clip.getClipFromMeta(meta);
+			return clip.hasBullets();
+		}
+		return false;
+	}
+
+	/**
+	 * Returns the unique imprint put on every bullet by this gun.
+	 * 
+	 * @return the imprint
+	 */
+	public String getBulletTag() {
+		return this.bulletTag;
+	}
+	
+	/**
+	 * Returns the unique imprint put on every gun.
+	 * 
+	 * @return the imprint
+	 */
+	public String getGunTag() {
+		return this.tag;
 	}
 }

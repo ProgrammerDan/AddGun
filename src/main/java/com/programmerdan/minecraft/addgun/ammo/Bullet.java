@@ -188,6 +188,25 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 			this.spreadHitDamage.put(hit, spreadHitDamage);
 		}
 	}
+	
+	/**
+	 * Gets the avg hit damage for this projectile
+	 * @param hit the part hit
+	 * @return the base + specific damage for part hit
+	 */
+	public double getAvgHitDamage(HitPart hit) {
+		return this.baseAvgHitDamage + this.avgHitDamage.getOrDefault(hit, 0.0d);
+	}
+	
+	/**
+	 * Gets the "spread" -- typically will be used as a 2*sigma on a normal distribution.
+	 * 
+	 * @param hit the part hit
+	 * @return the base + specific spread for the part hit. Note specific spreads can be negative, to indicate a "tighter" spread, just that combined they should not be less then 0.
+	 */
+	public double getSpreadHitDamage(HitPart hit) {
+		return this.baseSpreadHitDamage + this.spreadHitDamage.getOrDefault(hit,  0.0d);
+	}
 
 	/**
 	 * Gets the configured unique name for this Bullet instance.
@@ -210,6 +229,25 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 		}
 		return this.bulletType;
 	}
+
+	/**
+	 * Returns if this bullet requires XP to launch.
+	 * 
+	 * @return true if it does, false otherwise.
+	 */
+	public boolean getUsesXP() {
+		return this.xpDraw <= 0;
+	}
+	
+	/**
+	 * Returns the amount of XP used by this bullet.
+	 * 
+	 * @return XP used
+	 */
+	public int getXPDraw() {
+		return (this.xpDraw <= 0 ? 0 : this.xpDraw);
+	}
+
 	
 	/**
 	 * Returns the Class type that corresponds to the EntityType, or corrects if necessary.

@@ -1,10 +1,15 @@
 package com.programmerdan.minecraft.addgun.guns;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.craftbukkit.v1_12_R1.entity.CraftEntity;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.HumanEntity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
+
+import com.programmerdan.minecraft.addgun.ArmorType;
 
 import net.minecraft.server.v1_12_R1.AxisAlignedBB;
 import net.minecraft.server.v1_12_R1.MovingObjectPosition;
@@ -98,19 +103,72 @@ public class Utilities {
 	/**
 	 * Originally adapted from 1.8 computation TODO: doublecheck still valid.
 	 * 
-	 * @param p The player whose current XP to compute
+	 * @param e The entity  whose current XP to compute
 	 * @return the number of XP in hotbar right now.
 	 */
-	public static int computeTotalXP(Player p) {
-        float cLevel = (float) p.getLevel();
-        float progress = p.getExp();
-        float a = 1f, b = 6f, c = 0f, x = 2f, y = 7f;
-        if (cLevel > 16 && cLevel <= 31) {
-                a = 2.5f; b = -40.5f; c = 360f; x = 5f; y = -38f;
-        } else if (cLevel >= 32) {
-                a = 4.5f; b = -162.5f; c = 2220f; x = 9f; y = -158f;
-        }
-        return (int) Math.floor(a * cLevel * cLevel + b * cLevel + c + progress * (x * cLevel + y));
+	public static int computeTotalXP(LivingEntity e) {
+		if (e instanceof Player) {
+			Player p = (Player) p;
+	        float cLevel = (float) p.getLevel();
+	        float progress = p.getExp();
+	        float a = 1f, b = 6f, c = 0f, x = 2f, y = 7f;
+	        if (cLevel > 16 && cLevel <= 31) {
+	                a = 2.5f; b = -40.5f; c = 360f; x = 5f; y = -38f;
+	        } else if (cLevel >= 32) {
+	                a = 4.5f; b = -162.5f; c = 2220f; x = 9f; y = -158f;
+	        }
+	        return (int) Math.floor(a * cLevel * cLevel + b * cLevel + c + progress * (x * cLevel + y));
+		} else 
+			return 0; //TODO perhaps some fixed amount?
+		}
 	}
 
+	/**
+	 * Attempts to reduce the complexity of all materials to a more
+	 * manageable pile of enumeration
+	 * 
+	 * @param material any material
+	 * @return the rough armor grade, if any
+	 */
+	public static ArmorType getArmorType(Material material) {
+		switch(material) {
+		case IRON_BARDING:
+			return ArmorType.IRON_BARDING;
+		case GOLD_BARDING:
+			return ArmorType.GOLD_BARDING;
+		case DIAMOND_BARDING:
+			return ArmorType.DIAMOND_BARDING;
+		case LEATHER_BOOTS:
+		case LEATHER_HELMET:
+		case LEATHER_CHESTPLATE:
+		case LEATHER_LEGGINGS:
+			return ArmorType.LEATHER;
+		case IRON_BOOTS:
+		case IRON_HELMET:
+		case IRON_CHESTPLATE:
+		case IRON_LEGGINGS:
+			return ArmorType.IRON;
+		case GOLD_BOOTS:
+		case GOLD_HELMET:
+		case GOLD_CHESTPLATE:
+		case GOLD_LEGGINGS:
+			return ArmorType.GOLD;
+		case DIAMOND_BOOTS:
+		case DIAMOND_HELMET:
+		case DIAMOND_CHESTPLATE:
+		case DIAMOND_LEGGINGS:
+			return ArmorType.DIAMOND;
+		case CHAINMAIL_BOOTS:
+		case CHAINMAIL_CHESTPLATE:
+		case CHAINMAIL_HELMET:
+		case CHAINMAIL_LEGGINGS:
+			return ArmorType.CHAIN;
+		case SHIELD:
+			return ArmorType.SHIELD;
+		case ELYTRA:
+			return ArmorType.WINGS;
+		default:
+			return ArmorType.NONE;
+		}
+	}
 }
