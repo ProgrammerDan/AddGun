@@ -30,6 +30,7 @@ import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.util.Vector;
 
 import com.programmerdan.minecraft.addgun.AddGun;
+import com.programmerdan.minecraft.addgun.ArmorType;
 import com.programmerdan.minecraft.addgun.guns.HitPart;
 
 /**
@@ -133,18 +134,31 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 	// bypass stuff is TODO
 	
 	/**
-	 * % to which this bullet bypasses armor reduction, if defense points are at or below defensePointsBypassBegins
+	 * Base armor reduction % across all types
 	 */
-	private double armorBypass = 0.1d;
+	private double baseArmorReduction = 0.0d;
+	
 	/**
-	 * % of bypass occurring, assuming defensePointsBypassBegins is satisfied.
+	 * Configure armor damage reduction % for each type.
+	 * Note this is used to compute increasing reduction via enchantments
+	 * Note also that unlike normal damage, bullet damage is against a single piece of armor.
 	 */
-	private double armorBypassChance = 0.5d;
+	private Map<ArmorType, Double> armorReduction = new ConcurrentHashMap<ArmorType, Double>();
+	
 	/**
-	 * Based on the "defense points" calculus, determines the armor point at which bypass can occur. This is _on a per piece_ basis. See also
-	 * how it's modified by the hitlocation modifiers  
+	 * Base armor damage % across all types
 	 */
-	private double defensePointsBypassBegins = 5.0; 
+	private double baseArmorDamage = 0.0d;
+	
+	/**
+	 * Configure armor damage for each type.
+	 * Based on the type of armor, indicates what % of damage is passed on to the armor.
+	 * Some enchantments may reduce this in the final accounting.
+	 * But generally, a good metric to follow is the more damage reduction it offers, the
+	 * more damage it takes.
+	 */
+	private Map<ArmorType, Double> armorDamage = new ConcurrentHashMap<ArmorType, Double>();
+
 
 	public Bullet(ConfigurationSection config) {
 		this.name = config.getName();
@@ -174,15 +188,30 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 		this.knockback = config.getInt("knockback.level", knockback);
 		
 		// TODO: damage bypass.
+		this.baseArmorReduction = config.getDouble("reduction.base", baseArmorReduction);
+		for (ArmorType armor : ArmorType.values()) {
+			if (config.contains("reduction." + armor.toString())) {
+				double armorReduce = config.getDouble("reduction." + armor.toString());
+				this.armorReduction.put(armor, armorReduce);
+			}
+		}
 		
-		this.baseAvgHitDamage = config.getDouble("basedamage.avg", baseAvgHitDamage);
-		this.baseSpreadHitDamage = config.getDouble("basedamage.spread", baseSpreadHitDamage);
+		this.baseArmorDamage = config.getDouble("durability.base", baseArmorDamage);
+		for (ArmorType armor : ArmorType.values()) {
+			if (config.contains("durability." + armor.toString())) {
+				double armorDamage = config.getDouble("durability." + armor.toString());
+				this.armorDamage.put(armor,  armorDamage);
+			}
+		}
+		
+		this.baseAvgHitDamage = config.getDouble("damage.avg", baseAvgHitDamage);
+		this.baseSpreadHitDamage = config.getDouble("damage.spread", baseSpreadHitDamage);
 		
 		for (HitPart hit : HitPart.values()) {
-			ConfigurationSection hitConfig = config.getConfigurationSection(hit.toString());
+			ConfigurationSection hitConfig = config.getConfigurationSection("damage." + hit.toString());
 			if (hitConfig == null) continue;
-			double avgHitDamage = hitConfig.getDouble("damage.avg");
-			double spreadHitDamage = hitConfig.getDouble("damage.spread");
+			double avgHitDamage = hitConfig.getDouble("avg");
+			double spreadHitDamage = hitConfig.getDouble("spread");
 			
 			this.avgHitDamage.put(hit, avgHitDamage);
 			this.spreadHitDamage.put(hit, spreadHitDamage);
@@ -206,6 +235,26 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 	 */
 	public double getSpreadHitDamage(HitPart hit) {
 		return this.baseSpreadHitDamage + this.spreadHitDamage.getOrDefault(hit,  0.0d);
+	}
+	
+	/**
+	 * Gets the % reduction of damage that armor confers as its base impact.
+	 * 
+	 * @param armor the armor type being tested
+	 * @return the % reduction (0 to 1)
+	 */
+	public double getArmorReduction(ArmorType armor) {
+		return this.armorReduction.getOrDefault(armor, this.baseArmorReduction);
+	}
+	
+	/**
+	 * Gets the % of damage to apply to the armor.
+	 * 
+	 * @param armor the armor type absorbing damage
+	 * @return the % damage conferred to the armor (0 to 1)
+	 */
+	public double getArmorDamage(ArmorType armor) {
+		return this.armorReduction.getOrDefault(armor, this.baseArmorDamage);
 	}
 
 	/**

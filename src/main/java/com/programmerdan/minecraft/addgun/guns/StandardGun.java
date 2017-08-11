@@ -45,8 +45,33 @@ import com.programmerdan.minecraft.addgun.ammo.Bullet;
 import com.programmerdan.minecraft.addgun.ammo.Clip;
 
 import static com.programmerdan.minecraft.addgun.guns.Utilities.getArmorType;
+import static com.programmerdan.minecraft.addgun.guns.Utilities.computeTotalXP;
 
 public class StandardGun implements BasicGun {
+
+	private static double[] protectionCurve = new double[] {
+		0.0d,
+		-0.25 * Math.log(1.0 / (1.0 + 1.0)),
+		-0.25 * Math.log(1.0 / (2.0 + 1.0)),
+		-0.25 * Math.log(1.0 / (3.0 + 1.0)),
+		-0.25 * Math.log(1.0 / (4.0 + 1.0)),
+		-0.25 * Math.log(1.0 / (5.0 + 1.0)),
+		-0.25 * Math.log(1.0 / (6.0 + 1.0)),
+		-0.25 * Math.log(1.0 / (7.0 + 1.0)),
+		-0.25 * Math.log(1.0 / (8.0 + 1.0)),
+		-0.25 * Math.log(1.0 / (9.0 + 1.0)),
+		-0.25 * Math.log(1.0 / (10.0 + 1.0)),
+		-0.25 * Math.log(1.0 / (11.0 + 1.0)),
+		-0.25 * Math.log(1.0 / (12.0 + 1.0)),
+		-0.25 * Math.log(1.0 / (13.0 + 1.0)),
+		-0.25 * Math.log(1.0 / (14.0 + 1.0)),
+		-0.25 * Math.log(1.0 / (15.0 + 1.0)),
+	};
+	
+	private static double baseProjectileProtection = 1.0d;
+	private static double baseEnvironmentProtection = 0.25d;
+	private static double baseUnbreakingProtection = 0.33d;
+	
 	/**
 	 * Is this gun enabled?
 	 */
@@ -203,7 +228,9 @@ public class StandardGun implements BasicGun {
 				+ Integer.toHexString(this.getName().hashCode() + this.getName().length());
 	}
 	
-	public abstract ItemStack generateGun();
+	public ItemStack generateGun() {
+		return gunExample.clone();
+	}
 
 	public boolean isEnabled() {
 		return enabled;
@@ -441,7 +468,11 @@ public class StandardGun implements BasicGun {
 	}
 
 	/**
-	 * Override this class, you use it to manage what happens when something damageable is hit.
+	 * This is a complex method. It handles the various hitvectors and computations of damage both to
+	 * player/entity and armor. I'll write up a full explanation in the documentation of configuration.
+	 * 
+	 * For now it suffices that depending on _where_ the damage is done, and what is being worn there, depends
+	 * on the nature of the damage inflicted.
 	 * 
 	 * @param hitData the Data matrix showing hit information
 	 * @param hit the damageable entity that was struck
@@ -465,9 +496,14 @@ public class StandardGun implements BasicGun {
 		ItemStack shield = null;
 		double shieldEffectiveness = 0.0d;
 		
+		LivingEntity living = null;
+		EntityEquipment equipment = null;
+		
+		HumanEntity human = null;
+		
 		if (hit instanceof LivingEntity) {
-			LivingEntity living = (LivingEntity) hit;
-			EntityEquipment equipment = living.getEquipment();
+			living = (LivingEntity) hit;
+			equipment = living.getEquipment();
 			// now reductions?	
 			switch(hitData.nearestHitPart) {
 			case BODY:
@@ -498,14 +534,14 @@ public class StandardGun implements BasicGun {
 				break;
 			case MISS: // no hit?
 				nearMiss(hitData, hit, bullet, bulletType);
-				break;
+				return;
 			default:
 				break;
 			}
 			
 			if (shield != null && Material.SHIELD.equals(shield.getType())) {
 				if (hit instanceof HumanEntity) {
-					HumanEntity human = (HumanEntity) hit;
+					human = (HumanEntity) hit;
 					if (human.isBlocking()) {
 						shieldEffectiveness = 1.0d;
 					} else if (human.isHandRaised()) {
@@ -516,18 +552,7 @@ public class StandardGun implements BasicGun {
 				shield = null;
 			}
 		}
-		
-		if (armorHit != null) {
-			// check bypass?
-			
-			// check armor type
-			ArmorType grade = getArmorType(armorHit.getType()); 
-			int protLevel = armorHit.getEnchantmentLevel(Enchantment.PROTECTION_ENVIRONMENTAL);
-			int projLevel = armorHit.getEnchantmentLevel(Enchantment.PROTECTION_PROJECTILE);
-			
-			// TODO: calculate
-		}
-		
+
 		if (shield != null) {
 			// check bypass?
 			double angle = Math.toDegrees(hit.getLocation().getDirection().angle(speed));
@@ -538,6 +563,123 @@ public class StandardGun implements BasicGun {
 			}
 			
 			finalDamage *= (1.0 - shieldEffectiveness);
+			
+			AddGun.getPlugin().debug(String.format("Base damage of %.2f, Has shield %s, angle of %.2f, effectiveness %.2f, final Damage %.2f",
+					baseRealDamage, shield, angle, shieldEffectiveness, finalDamage));
+
+			int unbLevel = shield.getEnchantmentLevel(Enchantment.DURABILITY);
+			
+			// Basically, unbreaking reduces the amount of durability damage that the armor will sustain 
+			double unbReduction = (1.0 + StandardGun.baseUnbreakingProtection * StandardGun.protectionCurve[unbLevel]);
+			double finalDuraDamage = baseRealDamage * (1.0 - (1.0 - bulletType.getArmorDamage(ArmorType.SHIELD)) * unbReduction);
+			if (shield.getDurability() < finalDuraDamage) {
+				// broken.
+				double directDamage = finalDuraDamage - shield.getDurability();
+				
+				finalDamage += directDamage; // this is the bit of damage the shield was meant to absorb, but didn't.
+				
+				shield = null;
+				
+				AddGun.getPlugin().debug(String.format("Shield broken by dura damage %.2f, adding the remaining %.2f to the player damage", 
+						finalDuraDamage, directDamage));
+			} else {
+				shield.setDurability((short) (shield.getDurability() - Math.round(finalDuraDamage)));
+				
+				AddGun.getPlugin().debug(String.format("Shield damaged by %.2f", finalDuraDamage));
+			}
+		}
+
+		// reset base damage
+		baseRealDamage = finalDamage;
+		
+		if (armorHit != null && baseRealDamage > 0.0d) {
+			// check bypass?
+			
+			// check armor type
+			ArmorType grade = getArmorType(armorHit.getType()); 
+			int protLevel = armorHit.getEnchantmentLevel(Enchantment.PROTECTION_ENVIRONMENTAL);
+			int projLevel = armorHit.getEnchantmentLevel(Enchantment.PROTECTION_PROJECTILE);
+			int unbLevel = armorHit.getEnchantmentLevel(Enchantment.DURABILITY);
+			
+			if (projLevel > 15) projLevel = 15;
+			if (protLevel > 15) protLevel = 15;
+			if (unbLevel > 15) unbLevel = 15;
+		
+			// get base modifier from Bullet in terms of how much a type of armor protects you from this type of bullet
+			// then adjust based on prot and proj levels.
+			double reduction = bulletType.getArmorReduction(grade);
+			double protReduction = (1.0 + StandardGun.baseEnvironmentProtection * StandardGun.protectionCurve[protLevel]);
+			double projReduction = (1.0 + StandardGun.baseProjectileProtection * StandardGun.protectionCurve[projLevel]);
+			
+			double finalReduce = reduction * protReduction * projReduction;
+			
+			if (finalReduce > 1.0) finalReduce = 1.0;
+			
+			finalDamage *= (1.0 - finalReduce);
+			
+			AddGun.getPlugin().debug(String.format("Has armor %s, baseDamage of %.2f, base reduction %.2f, prot %.2f, proj %.2f, final Damage %.2f",
+					armorHit, baseRealDamage, reduction, protReduction, projReduction, finalDamage));
+			
+			// Basically, unbreaking reduces the amount of durability damage that the armor will sustain 
+			double unbReduction = (1.0 + StandardGun.baseUnbreakingProtection * StandardGun.protectionCurve[unbLevel]);
+			double finalDuraDamage = baseRealDamage * (1.0 - (1.0 - bulletType.getArmorDamage(grade)) * unbReduction);
+			if (armorHit.getDurability() < finalDuraDamage) {
+				// broken.
+				double directDamage = finalDuraDamage - armorHit.getDurability();
+				
+				finalDamage += directDamage; // this is the bit of damage the armor was meant to absorb, but didn't.
+				
+				armorHit = null;
+				
+				AddGun.getPlugin().debug(String.format("Armor broken by dura damage %.2f, adding the remaining %.2f to the player damage", 
+						finalDuraDamage, directDamage));
+			} else {
+				armorHit.setDurability((short) (armorHit.getDurability() - Math.round(finalDuraDamage)));
+				
+				AddGun.getPlugin().debug(String.format("Armor damaged by %.2f", finalDuraDamage));
+			}
+		}
+		
+		if (equipment != null) {
+			ItemStack tShield = equipment.getItemInOffHand();
+
+			switch(hitData.nearestHitPart) {
+			case BODY:
+			case CHEST_PLATE:
+			case LEFT_ARM:
+			case LEFT_FOOT:
+			case LEFT_HAND:
+			case RIGHT_ARM:
+			case RIGHT_FOOT:
+			case RIGHT_HAND:// all variants on body atm
+				equipment.setLeggings(armorHit);
+				if (tShield != null && Material.SHIELD.equals(tShield.getType())) {
+					equipment.setItemInOffHand(shield);
+				}
+				break;
+			case BOOTS:
+			case FEET: // just feet
+				equipment.setBoots(armorHit);
+				break;
+			case HEAD:
+			case HELMET: // just head
+				equipment.setHelmet(armorHit);
+				if (tShield != null && Material.SHIELD.equals(tShield.getType())) {
+					equipment.setItemInOffHand(shield);
+				}
+				break;
+			case LEGGINGS:
+			case LEFT_LEG:
+			case RIGHT_LEG: 
+			case LEGS: // just legs
+				equipment.setLeggings(armorHit);
+				break;
+			case MISS: // no hit?
+				nearMiss(hitData, hit, bullet, bulletType);
+				break;
+			default:
+				break;
+			}
 		}
 		
 		//TODO: player states? custom shit? event?
@@ -557,7 +699,7 @@ public class StandardGun implements BasicGun {
 	 * @param bullet the "Projectile" bullet doing the hitting
 	 * @param bulletType the "Bullet" type of the projectile.
 	 */
-	abstract void postHit(HitDigest hitData, Entity hit, Projectile bullet, Bullet bulletType);
+	public void postHit(HitDigest hitData, Entity hit, Projectile bullet, Bullet bulletType) {}
 
 	/**
 	 * Any post-miss cleanup can be handled here. Misses will automatically run this function, and
@@ -569,8 +711,8 @@ public class StandardGun implements BasicGun {
 	 * @param continueBullet Since the original projectile is removed, this is a "continue" bullet spawned _after_ the miss entity.
 	 * @param bulletType the "Bullet" type of the projectiles.
 	 */
-	abstract void postMiss(HitDigest hitData, Entity hit, Projectile bullet, Projectile continueBullet,
-			Bullet bulletType);
+	public void postMiss(HitDigest hitData, Entity hit, Projectile bullet, Projectile continueBullet,
+			Bullet bulletType) {}
 	
 	
 	/**
@@ -598,9 +740,6 @@ public class StandardGun implements BasicGun {
 			newBullet.setVelocity(velocity);
 		}
 
-		travelPaths.put(newBullet.getUniqueId(), begin);
-		inFlightBullets.put(newBullet.getUniqueId(), bulletType);
-		
 		return newBullet;
 	}
 
