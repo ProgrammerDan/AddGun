@@ -32,6 +32,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.metadata.MetadataValueAdapter;
@@ -50,6 +51,7 @@ import static com.programmerdan.minecraft.addgun.guns.Utilities.getInvXp;
 import static com.programmerdan.minecraft.addgun.guns.Utilities.computeTotalXP;
 import static com.programmerdan.minecraft.addgun.guns.Utilities.getGunData;
 import static com.programmerdan.minecraft.addgun.guns.Utilities.updateGunData;
+import static com.programmerdan.minecraft.addgun.guns.Utilities.sigmoid;
 
 public class StandardGun implements BasicGun {
 
@@ -119,7 +121,13 @@ public class StandardGun implements BasicGun {
 	/**
 	 * Inflection point, when this many uses remain the risk of misfire is 50%
 	 */
-	private int middleRisk = 20;
+	private int middleRisk = 10;
+	
+	/**
+	 * Risk spread, addresses how steep misfire chance goes from 0 to 50 and from 50 to 100.
+	 * A bigger spread means misfire chance
+	 */
+	private int riskSpread = 20;
 	
 	/**
 	 * Misfire explosion change (percentage) -- could be modified by bullets
@@ -127,11 +135,9 @@ public class StandardGun implements BasicGun {
 	private double misfireBlowoutChance = 0.05;
 	
 	/**
-	 * Internal, computed. Will be gun item's max health / uses.
+	 * Misfire blowout explosion strength -- could be modified by bullets.
 	 */
-	private int damagePerUse = (int) (1562 / maxUses);
-	
-
+	private float baseBlowoutStrength = 2f;
 	
 	/**
 	 * When firing the gun and still / sneak isn't maximized, potentially angular jitter
@@ -222,6 +228,16 @@ public class StandardGun implements BasicGun {
 	 * The point at which, after so many seconds of sneaking, any aim impacts are halved.
 	 */
 	private double sneakInflection = 7.5d;
+	/**
+	 * A relative "spread" of speed of motion over inflection, values close to 0 lead to a sharp inflection, values larger make a smoother
+	 * transition. Values of 2.5 to 8 are typical. This is for stillness.
+	 */
+	private double stillSpread = 2.5d;
+	/**
+	 * A relative "spread" of speed of motion over inflection, values close to 0 lead to a sharp inflection, values larger make a smoother
+	 * transition. Values of 2.5 to 8 are typical. This is for sneaking.
+	 */
+	private double sneakSpread = 2.5d;
 	
 	public StandardGun(String name) {
 		this.name = name;
@@ -293,6 +309,14 @@ public class StandardGun implements BasicGun {
 	public void setMiddleRisk(int middleRisk) {
 		this.middleRisk = middleRisk;
 	}
+	
+	public int getRiskSpread() {
+		return riskSpread;
+	}
+	
+	public void setRiskSpread(int riskSpread) {
+		this.riskSpread = riskSpread;
+	}
 
 	public double getMisfireBlowoutChance() {
 		return misfireBlowoutChance;
@@ -302,13 +326,6 @@ public class StandardGun implements BasicGun {
 		this.misfireBlowoutChance = misfireBlowoutChance;
 	}
 
-	public int getDamagePerUse() {
-		return damagePerUse;
-	}
-
-	public void setDamagePerUse(int damagePerUse) {
-		this.damagePerUse = damagePerUse;
-	}
 
 	public int getXpDraw() {
 		return xpDraw;
@@ -422,6 +439,22 @@ public class StandardGun implements BasicGun {
 		this.sneakInflection = sneakInflection;
 	}
 
+	public double getStillSpread() {
+		return stillSpread;
+	}
+
+	public void setStillSpread(double stillSpread) {
+		this.stillSpread = stillSpread;
+	}
+
+	public double getSneakSpread() {
+		return sneakSpread;
+	}
+
+	public void setSneakSpread(double sneakSpread) {
+		this.sneakSpread = sneakSpread;
+	}
+	
 	public String getName() {
 		return name;
 	}
@@ -1060,4 +1093,337 @@ public class StandardGun implements BasicGun {
 		}
 		return new ItemStack[] {gun, ammo};
 	}
+
+	/**
+	 * This figures out how to pay for the firing, based on all the needs of the gun, bullet, etc.
+	 * 
+	 * It handles any inventory removals.
+	 * 
+	 * @param entity the entity shooting
+	 * @param bulletType the type of bullet
+	 * @param gun the gun item
+	 * @param gunData the embedded gun data
+	 * @param hand the hand that held the gun
+	 * @return true if the shot is paid for, false otherwise. At this point all deducations are made, whether true or false (no refunds)
+	 */
+	public boolean payForShot(LivingEntity entity, Bullet bulletType, ItemStack gun, Map<String, Object> gunData, EquipmentSlot hand) {
+		if (entity == null || !enabled) {
+			return false;
+		}
+
+		if (entity instanceof InventoryHolder) {
+			// complex inventory
+			InventoryHolder holder = (InventoryHolder) entity;
+			boolean foundBullet = false;
+			boolean xp = !(entity instanceof Player);
+			if (AmmoType.INVENTORY.equals((AmmoType) gunData.get("type"))) {
+				for (Map.Entry<Integer,? extends ItemStack> bullet : holder.getInventory().all(bulletType.getMaterialType()).entrySet()) {
+					ItemStack maybeBullets = bullet.getValue();
+					if (bulletType.isBullet(maybeBullets) && maybeBullets.getAmount() > 0) {
+						maybeBullets.setAmount(maybeBullets.getAmount() - 1);
+						if (maybeBullets.getAmount() > 0) {
+							holder.getInventory().setItem(bullet.getKey(), maybeBullets);
+						} else {
+							holder.getInventory().clear(bullet.getKey());
+						}
+						foundBullet = true;
+						
+						gunData.clear();
+						gunData.put("health", (Integer) gunData.get("health") - 1);
+						gun = updateGunData(gun, gunData);
+						switch(hand) {
+						case HAND:
+							entity.getEquipment().setItemInMainHand(gun);
+							break;
+						case OFF_HAND:
+							entity.getEquipment().setItemInOffHand(gun);
+							break;
+						default:
+							return false;
+						}
+
+						break;
+					}
+				}
+			} else {
+				// withdraw from the gun, or try to
+				Object rounds = gunData.get("rounds");
+				if (rounds != null && rounds instanceof Integer && ((Integer) rounds) > 0) {
+					foundBullet = true;
+					int newRounds = ((Integer) rounds) - 1;
+					gunData.clear();
+					if (newRounds > 0) {
+						gunData.put("rounds", ((Integer) rounds) - 1);
+					} else { // empty.
+						if (AmmoType.BULLET.equals((AmmoType) gunData.get("type"))) {
+							gunData.put("ammo", null);
+						} // if it's a clip we just zero out rounds but leave the clip "loaded".
+						gunData.put("rounds", Integer.valueOf(0));
+					}
+					gunData.put("health", (Integer) gunData.get("health") - 1);
+					gun = updateGunData(gun, gunData);
+					switch(hand) {
+					case HAND:
+						entity.getEquipment().setItemInMainHand(gun);
+						break;
+					case OFF_HAND:
+						entity.getEquipment().setItemInOffHand(gun);
+						break;
+					default:
+						return false;
+					}
+				} else {
+					return false; // no ammo in gun!
+				}
+			}
+			
+			if (foundBullet && !xp && (this.usesXP || bulletType.getUsesXP())) {
+				Player player = (Player) entity;
+				int xpNeeds = computeTotalXP(player) - this.xpDraw - bulletType.getXPDraw(); 
+
+				if (xpNeeds < 0) {
+					for (Map.Entry<Integer,? extends ItemStack> xpbottle : player.getInventory().all(Material.EXP_BOTTLE).entrySet()) {
+						ItemStack maybeXp = xpbottle.getValue();
+						if (maybeXp.getAmount() > 0) {
+							int xpInStack = maybeXp.getAmount() * AddGun.getPlugin().getXpPerBottle();
+							int leftOver = xpInStack + xpNeeds; // (in stack + ( negative leftover )) 
+							if (leftOver < 0) { // not fully satisfied.
+								xpNeeds += xpInStack; // becomes a smaller negative number
+								player.getInventory().clear(xpbottle.getKey());
+								if (xpNeeds == 0) { // !! fully satisfied on the money.
+									xp = true;
+									break;
+								}
+							} else { // fully satisfied with leftover
+								xpInStack += xpNeeds;
+								int bottlesLeft = xpInStack / AddGun.getPlugin().getXpPerBottle();
+								
+								// we set the remainder as a gift back to the player.
+								xpNeeds = xpInStack - bottlesLeft * AddGun.getPlugin().getXpPerBottle(); 
+								
+								if (bottlesLeft > 0) {
+									maybeXp.setAmount(bottlesLeft);
+									player.getInventory().setItem(xpbottle.getKey(), maybeXp);
+								} else {
+									player.getInventory().clear(xpbottle.getKey());
+								}
+								
+								xp = true;
+								break;
+							}
+						}
+					}
+					if (!xp) {
+						return false; // LOSSY!!! someone is playing mindgames, let's screw em up.
+					}
+				} else {
+					xp = true;
+				}
+				player.setLevel(0);
+				player.setExp(0.0f);
+				player.giveExp(xpNeeds);
+			}
+			
+			return foundBullet && xp;
+		} else {
+			if (AmmoType.INVENTORY.equals((AmmoType) gunData.get("type"))) {
+				// simple inventory, no xp
+				ItemStack maybeBullets = EquipmentSlot.HAND.equals(hand) ? entity.getEquipment().getItemInOffHand() : entity.getEquipment().getItemInMainHand(); 
+				if(bulletType.isBullet(maybeBullets)) {
+					if (maybeBullets.getAmount() < 1) {
+						return false;
+					} else {
+						maybeBullets.setAmount(maybeBullets.getAmount() - 1);
+						if (maybeBullets.getAmount() > 0) {
+							if (EquipmentSlot.HAND.equals(hand)) {
+								entity.getEquipment().setItemInOffHand(maybeBullets);
+							} else {
+								entity.getEquipment().setItemInMainHand(maybeBullets);
+							}
+						} else {
+							if (EquipmentSlot.HAND.equals(hand)) {
+								entity.getEquipment().setItemInOffHand(null);
+							} else {
+								entity.getEquipment().setItemInMainHand(null);
+							}
+						}
+						
+						// deduct health from gun.
+						gunData.clear();
+						gunData.put("health", (Integer) gunData.get("health") - 1);
+						gun = updateGunData(gun, gunData);
+						switch(hand) {
+						case HAND:
+							entity.getEquipment().setItemInMainHand(gun);
+							break;
+						case OFF_HAND:
+							entity.getEquipment().setItemInOffHand(gun);
+							break;
+						default:
+							return false;
+						}
+
+						return true;
+					}
+				}
+			} else {
+				// withdraw from the gun, or try to
+				Object rounds = gunData.get("rounds");
+				if (rounds != null && rounds instanceof Integer && ((Integer) rounds) > 0) {
+					int newRounds = ((Integer) rounds) - 1;
+					gunData.clear();
+					if (newRounds > 0) {
+						gunData.put("rounds", ((Integer) rounds) - 1);
+					} else { // empty.
+						if (AmmoType.BULLET.equals((AmmoType) gunData.get("type"))) {
+							gunData.put("ammo", null);
+						} // if it's a clip we just zero out rounds but leave the clip "loaded".
+						gunData.put("rounds", Integer.valueOf(0));
+					}
+					gunData.put("health", (Integer) gunData.get("health") - 1);
+					gun = updateGunData(gun, gunData);
+					switch(hand) {
+					case HAND:
+						entity.getEquipment().setItemInMainHand(gun);
+						break;
+					case OFF_HAND:
+						entity.getEquipment().setItemInOffHand(gun);
+						break;
+					default:
+						return false;
+					}
+				} else {
+					return false; // no ammo in gun!
+				}				
+			}
+		}
+		return false;
+
+	}
+
+	/**
+	 * This figures out if the gun's ammo is in the entity's inventory. 
+	 * 
+	 * @param entity the entity to check
+	 * @return the Bullet type found that is valid for this gun, or null.
+	 */
+	public Bullet getAmmo(LivingEntity entity) {
+		if (entity == null || !enabled)
+			return null;
+
+		ItemStack[] inv;
+		if (entity instanceof InventoryHolder) {
+			// complex inventory
+			InventoryHolder holder = (InventoryHolder) entity;
+			inv = holder.getInventory().getContents();
+		} else {
+			// simple inventory
+			inv = entity.getEquipment().getArmorContents();
+		}
+
+		if (inv != null) {
+			for (ItemStack item : inv) {
+				Bullet bullet = AddGun.getPlugin().getAmmo().findBullet(item);
+				if (bullet != null && this.allBullets.contains(bullet.getName())) {
+					return bullet;
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Computes chance that the gun misfires! Yikes.
+	 * 
+	 * Misfire is based on when you last repaired the gun. A misfire has a chance of causing a gun to explode (handled in another function)
+	 * 
+	 * 
+	 * 
+	 * @param entity the entity shooting the gun
+	 * @param bulletType the type of bullet
+	 * @param item the gunItem, could be modified by this.
+	 * @param gunData the gunData
+	 * @param hand the hand holding the gun.
+	 * 
+	 * @return true if misfired, false otherwise.
+	 */
+	public boolean misfire(LivingEntity entity, Bullet bulletType, ItemStack item, Map<String, Object> gunData,
+			EquipmentSlot hand) {
+		if (entity == null || !enabled) 
+			return true;
+		
+		Integer health = (Integer) gunData.get("health"); // gunhealth!
+		double misfireChance = 1.0d - sigmoid((double) health, (double) this.middleRisk,0.5d, (double) this.riskSpread);
+		
+		double random = Math.random();
+		if (random < misfireChance) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Gets chance that the misfiring gun also explodes! Yikes.
+	 * 
+	 * @param entity the entity shooting the gun
+	 * @param bulletType the type of bullet
+	 * @param item the gunItem, could be modified by this.
+	 * @param gunData the gunData
+	 * @param hand the hand holding the gun.
+	 * @return true if blowout, false otherwise
+	 */
+	public boolean blowout(LivingEntity entity, Bullet bulletType, ItemStack gun, Map<String, Object> gunData,
+			EquipmentSlot hand) {
+		if (entity == null || !enabled)
+			return true;
+		
+		double random = Math.random();
+		if (random < this.misfireBlowoutChance) {
+			Location explosion = entity.getLocation().clone().add(0.0d, 1.3d, 0.0d);
+			World world = explosion.getWorld();
+			random = Math.random();
+			world.createExplosion(explosion, this.baseBlowoutStrength + bulletType.getExplosionLevel(), (random < bulletType.getFireChance()) ? true : false);
+
+			gunData.clear();
+			gunData.put("health", Integer.valueOf(0));
+			gun = updateGunData(gun, gunData);
+			switch(hand) {
+			case HAND:
+				entity.getEquipment().setItemInMainHand(gun);
+				break;
+			case OFF_HAND:
+				entity.getEquipment().setItemInOffHand(gun);
+				break;
+			default:
+			}
+			
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * This just fires off a sound. Successor types could do more, or maybe I'll think of something later.
+	 * 
+	 * @param loc the location of firing
+	 * @param entity the entity shooting
+	 * @param bullet the new projectile
+	 * @param bulletType the type of the projectile (as a bullet)
+	 */
+	public void postShoot(Location loc, LivingEntity entity, Projectile bullet, Bullet bulletType) {
+		loc.getWorld().spawnParticle(Particle.FLAME, loc, 5);
+		loc.getWorld().playSound(loc, Sound.ENTITY_FIREWORK_LARGE_BLAST_FAR, 10.0f, 2.0f);
+	}
+
+	/**
+	 * Based on shooting the gun, jerks the player's head to the direction of firing
+	 * 
+	 * @param entity the entity shooting
+	 * @param direction the direction of shot
+	 */
+	public void knockback(LivingEntity entity, Vector direction) {
+		entity.teleport(entity.getLocation().setDirection(direction), TeleportCause.PLUGIN);
+	}
+	
+	
 }

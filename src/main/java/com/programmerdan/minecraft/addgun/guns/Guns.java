@@ -1,15 +1,14 @@
 package com.programmerdan.minecraft.addgun.guns;
 
-import static com.programmerdan.minecraft.addgun.guns.Utilities.computeTotalXP;
 import static com.programmerdan.minecraft.addgun.guns.Utilities.detailedHitBoxLocation;
 import static com.programmerdan.minecraft.addgun.guns.Utilities.getGunData;
+import static com.programmerdan.minecraft.addgun.guns.Utilities.sigmoid;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -24,7 +23,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
@@ -206,9 +204,10 @@ public class Guns implements Listener {
 				// test for misfire
 				if (gun.misfire(player, bulletType, item, gunData, event.getHand())) {
 					// test for blowout
-					
 					if (gun.blowout(player, bulletType, item, gunData, event.getHand())) {
-						// handle explosion
+						player.sendMessage(ChatColor.AQUA + gun.getName() + ChatColor.RED + " explosively misfired! Please repair the gun before continuing");
+					} else {
+						player.sendMessage(ChatColor.AQUA + gun.getName() + ChatColor.RED + " misfired! Try again.");
 					}
 				} else {
 					// based on their stillness and settledness.
@@ -334,7 +333,7 @@ public class Guns implements Listener {
 	 */
 	public double computeAccuracyFor(StandardGun gun, Bullet bullet, LivingEntity entity) {
 		// TODO: factor in bullet and gun
-		double internalAccuracy = computeAccuracyFor(entity.getUniqueId());
+		double internalAccuracy = computeAccuracyFor(entity.getUniqueId(), gun, bullet);
 		
 		// TODO: fire an event off here to see if anyone wants to modify jitter
 		// DetermineAccuracyEvent event = new DetermineAccuracyEvent(gun, bullet, entity, internalAccuracy)
@@ -351,7 +350,7 @@ public class Guns implements Listener {
 	 * @param entity the entity's UUID to check
 	 * @return value from 0 to 1 where 1 is worse and 0 is best
 	 */
-	private double computeAccuracyFor(UUID entity) {
+	private double computeAccuracyFor(UUID entity, StandardGun gun, Bullet bullet) {
 		long now = System.currentTimeMillis();
 		PlayerListener listener = AddGun.getPlugin().getPlayerListener();
 		Long sneak = listener.getSneakingSince(entity);
@@ -361,30 +360,29 @@ public class Guns implements Listener {
 		if (sneak == null && still == null) { // not sneaking, not still.
 			return 1.0d;
 		}
+		
+		double combineSneakInflection = gun.getSneakInflection() + bullet.getSneakInflection();
+		if (combineSneakInflection < 0.0d) combineSneakInflection = 0.0d;
+		
+		double combineStillInflection = gun.getStillInflection() + bullet.getStillInflection();
+		if (combineStillInflection < 0.0d) combineStillInflection = 0.0d;
+		
+		double combineSneakSpread = gun.getSneakSpread() + bullet.getSneakSpread();
+		if (combineSneakSpread < 0.00001d) combineSneakSpread = 0.00001d;
+		
+		double combineStillSpread = gun.getStillSpread() + bullet.getStillSpread();
+		if (combineStillSpread < 0.00001d) combineStillSpread = 0.00001d;
+		
 		if (sneak != null) { // sneaking
-			base -= timeSigmoid((now - sneak) / 1000.0d);
+			base -= sigmoid((now - sneak) / 1000.0d, combineSneakInflection, 0.25d, combineSneakSpread);
 		}
 		if (still != null) { // still
-			base -= timeSigmoid((now - still) / 1000.0d);
+			base -= sigmoid((now - still) / 1000.0d, combineStillInflection, 0.25d, combineStillSpread);
 		}
 		
 		return base > 0.0d ? base : 0.0d;
 	}
 	
-	/**
-	 * private function to compute a soft sigmoid based on
-	 * 0 to 15000 milliseconds elapsed. 
-	 * Inflection is at 7500 milliseconds. Asymptotically approaches
-	 * .5 as time increases
-	 * @param elapsed in fractions of a second
-	 * @return
-	 */
-	private double timeSigmoid(double elapsed) {
-		double term = (elapsed - 7.5d) / 2.5d;
-		return 0.25d + 0.25 * (term / Math.sqrt(1.0 + term * term));
-	}
-
-
 	/**
 	 * True is guns are configured, false otherwise.
 	 * @return true for yes

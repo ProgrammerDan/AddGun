@@ -445,4 +445,18 @@ public class Utilities {
 		
 		return CraftItemStack.asBukkitCopy(nmsClip);
 	}
+	
+	/**
+	 * private function to compute a soft sigmoid. Originally designed for time functions, can be used elsewhere
+	 * 
+	 * @param elapsed in fractions of a second
+	 * @param asymptote fraction of a second of inflection
+	 * @param y expansion factor, 0.25 for [0,.5] 0.5 for [0,1]
+	 * @param spread smoothness of sigmoid, larger is a smoother curve (but high minimum) (2.5 - 5 is a good range)
+	 * @return
+	 */
+	public static double sigmoid(double elapsed, double asymptote, double y, double spread) {
+		double term = (elapsed - asymptote) / spread;
+		return y + y * (term / Math.sqrt(1.0 + term * term));
+	}
 }

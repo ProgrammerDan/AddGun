@@ -125,11 +125,19 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 	/**
 	 * Explosion?
 	 */
-	private int explosionLevel = 0;
+	private float explosionLevel = 0;
 	/**
 	 * Chance of an explosion on impact.
 	 */
 	private double explosionChance = 0.0d;
+	
+	public float getExplosionLevel() {
+		return this.explosionLevel;
+	}
+	
+	public double getExplosionChance() {
+		return this.explosionChance;
+	}
 	/**
 	 * Incendiary?
 	 */
@@ -138,6 +146,15 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 	 * Chance of starting a fire on impact.
 	 */
 	private double fireChance = 0.0d;
+	
+	public int getFireTicks() {
+		return this.fireTicks;
+	}
+	
+	public double getFireChance() {
+		return this.fireChance;
+	}
+	
 	/**
 	 * Knockback on hit
 	 */
@@ -147,6 +164,62 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 	 */
 	private double knockbackChance = 0.0d;
 
+	/**
+	 * The point at which, after so many seconds of "stillness" -- head motion only -- that any aim impacts are halved.
+	 * Additive to gun base. Some bullets are harder to fire.
+	 */
+	private double stillInflection = 0.0d;
+	/**
+	 * The point at which, after so many seconds of sneaking, any aim impacts are halved.
+	 */
+	private double sneakInflection = 0.0d;
+	/**
+	 * A relative "spread" of speed of motion over inflection, values close to 0 lead to a sharp inflection, values larger make a smoother
+	 * transition. This is for stillness. Adds to gun spread, so keep this reasonable.
+	 */
+	private double stillSpread = 0.0d;
+	/**
+	 * A relative "spread" of speed of motion over inflection, values close to 0 lead to a sharp inflection, values larger make a smoother
+	 * transition. This is for sneaking.
+	 */
+	private double sneakSpread = 0.0d;
+
+	
+	public double getStillInflection() {
+		return stillInflection;
+	}
+
+	public void setStillInflection(double stillInflection) {
+		this.stillInflection = stillInflection;
+	}
+
+	public double getSneakInflection() {
+		return sneakInflection;
+	}
+
+	public void setSneakInflection(double sneakInflection) {
+		this.sneakInflection = sneakInflection;
+	}
+
+	public double getStillSpread() {
+		return stillSpread;
+	}
+
+	public void setStillSpread(double stillSpread) {
+		this.stillSpread = stillSpread;
+	}
+
+	public double getSneakSpread() {
+		return sneakSpread;
+	}
+
+	public void setSneakSpread(double sneakSpread) {
+		this.sneakSpread = sneakSpread;
+	}
+	
+	
+	public double 
+	
 	// bypass stuff is TODO
 	
 	/**
@@ -206,6 +279,11 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 		this.xpDraw = config.getInt("xpPerShot", xpDraw);
 		this.maxMissRadius = config.getDouble("missRadius.max", maxMissRadius);
 		this.minMissRadius = config.getDouble("missRadius.min", minMissRadius);
+		
+		this.sneakInflection = config.getDouble("sneak.inflection", sneakInflection);
+		this.sneakSpread = config.getDouble("sneak.spread", sneakSpread);
+		this.stillInflection = config.getDouble("still.inflection", stillInflection);
+		this.stillSpread = config.getDouble("still.spread", stillSpread);
 		
 		this.avgScatter = config.getInt("scatter.avg", avgScatter);
 		this.spreadScatter = config.getInt("scatter.spread", spreadScatter);
