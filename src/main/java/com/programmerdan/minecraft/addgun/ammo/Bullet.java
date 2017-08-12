@@ -1,9 +1,13 @@
 package com.programmerdan.minecraft.addgun.ammo;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Arrow;
@@ -26,6 +30,8 @@ import org.bukkit.entity.SplashPotion;
 import org.bukkit.entity.ThrownExpBottle;
 import org.bukkit.entity.TippedArrow;
 import org.bukkit.entity.WitherSkull;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.util.Vector;
 
@@ -53,9 +59,19 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 	private String name;
 	
 	/**
+	 * The item tag of this bullet, used when as an inventory item (name is used when "loaded" into a gun, tag when in inventory)
+	 */
+	private String tag;
+	
+	/**
 	 * The entity nature of this bullet.
 	 */
 	private EntityType bulletType;
+	
+	/**
+	 * The ItemStack that represents this bullet.
+	 */
+	private ItemStack example;
 	
 	/**
 	 * Misfire explosion chance modifier (additive) (percentage)
@@ -163,10 +179,27 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 	public Bullet(ConfigurationSection config) {
 		this.name = config.getName();
 		
+		this.tag = ChatColor.BLACK + "Bullet: "
+				+ Integer.toHexString(this.getName().hashCode() + this.getName().length());
+
 		try {
 			this.bulletType = EntityType.valueOf(config.getString("type", EntityType.SMALL_FIREBALL.toString()));
 		} catch (IllegalArgumentException | NullPointerException e) {
 			this.bulletType = EntityType.SMALL_FIREBALL;
+		}
+		
+		this.example = config.getItemStack("example");
+		if (this.example != null) {
+			 ItemMeta meta = this.example.getItemMeta();
+			 List<String> lore = meta.getLore();
+			 if (lore == null) {
+				 lore = new ArrayList<String>();
+			 }
+			 lore.add(this.tag);
+			 meta.setLore(lore);
+			 this.example.setItemMeta(meta);
+		} else {
+			throw new IllegalArgumentException("No inventory representation (section example) provided for this bullet, it cannot be instanced");
 		}
 		
 		this.misfireBlowoutChance = config.getDouble("misfireBlowoutChance", misfireBlowoutChance);
@@ -267,6 +300,32 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 	}
 	
 	/**
+	 * Returns the inventory representation of this bullet.
+	 * 
+	 * @return a Clone of the backing inventory item object.
+	 */
+	public ItemStack getBulletItem() {
+		return this.example.clone();
+	}
+	
+	/**
+	 * Returns the material type of the inventory representation of this bullet.
+	 * 
+	 * @return the Material enum type
+	 */
+	public Material getMaterialType() {
+		return this.example.getType();
+	}
+	
+	/**
+	 * The hidden bullet tag that identifies it uniquely when in inventories
+	 * @return the string tag
+	 */
+	public String getTag() {
+		return this.tag;
+	}
+	
+	/**
 	 * Returns the configured EntityType for this Bullet instance, corrects it if necessary.
 	 * 
 	 * @return the entity type
@@ -295,6 +354,23 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 	 */
 	public int getXPDraw() {
 		return (this.xpDraw <= 0 ? 0 : this.xpDraw);
+	}
+	
+	/**
+	 * The degrees to augment the gun's min miss radius with.
+	 * @return miss radius modifier
+	 */
+	public double getMinMissRadius() {
+		return this.minMissRadius;
+	}
+	
+	/**
+	 * The degrees to augment the gun's max miss radius with.
+	 * 
+	 * @return miss radius modifier
+	 */
+	public double getMaxMissRadius() {
+		return this.maxMissRadius;
 	}
 
 	
@@ -453,6 +529,30 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 	@Override
 	public int hashCode() {
 		return this.getName().hashCode();
+	}
+
+	/**
+	 * Lightweight check to see if the given itemstack is a bullet
+	 * @param toCheck
+	 * @return
+	 */
+	public boolean isBullet(ItemStack toCheck) {
+		if (toCheck == null)
+			return false;
+
+		if (!example.getType().equals(toCheck.getType()))
+			return false;
+
+		if (!toCheck.hasItemMeta())
+			return false;
+
+		ItemMeta meta = toCheck.getItemMeta();
+
+		if (meta.getLore().contains(tag))
+			return true;
+
+		return false;
+
 	}
 
 }

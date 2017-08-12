@@ -1,18 +1,28 @@
 package com.programmerdan.minecraft.addgun.guns;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.craftbukkit.v1_12_R1.entity.CraftEntity;
+import org.bukkit.craftbukkit.v1_12_R1.inventory.CraftItemStack;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
 import com.programmerdan.minecraft.addgun.ArmorType;
+import com.programmerdan.minecraft.addgun.ammo.AmmoType;
 
 import net.minecraft.server.v1_12_R1.AxisAlignedBB;
 import net.minecraft.server.v1_12_R1.MovingObjectPosition;
+import net.minecraft.server.v1_12_R1.NBTBase;
+import net.minecraft.server.v1_12_R1.NBTTagCompound;
 import net.minecraft.server.v1_12_R1.Vec3D;
 
 /**
@@ -108,7 +118,7 @@ public class Utilities {
 	 */
 	public static int computeTotalXP(LivingEntity e) {
 		if (e instanceof Player) {
-			Player p = (Player) p;
+			Player p = (Player) e;
 	        float cLevel = (float) p.getLevel();
 	        float progress = p.getExp();
 	        float a = 1f, b = 6f, c = 0f, x = 2f, y = 7f;
@@ -118,10 +128,42 @@ public class Utilities {
 	                a = 4.5f; b = -162.5f; c = 2220f; x = 9f; y = -158f;
 	        }
 	        return (int) Math.floor(a * cLevel * cLevel + b * cLevel + c + progress * (x * cLevel + y));
-		} else 
+		} else { 
 			return 0; //TODO perhaps some fixed amount?
 		}
 	}
+	
+	/**
+	 * Estimates the XP this entity has in inventory.
+	 * 
+	 * @param entity the entity to check
+	 * @return how much XP is held
+	 */
+	public static int getInvXp(LivingEntity entity) {
+		if (entity == null)
+			return 0;
+
+		ItemStack[] inv;
+		if (entity instanceof InventoryHolder) {
+			// complex inventory
+			InventoryHolder holder = (InventoryHolder) entity;
+			inv = holder.getInventory().getContents();
+		} else {
+			// simple inventory
+			inv = entity.getEquipment().getArmorContents();
+		}
+
+		int total = 0;
+		if (inv != null) {
+			for (ItemStack item : inv) {
+				if (Material.EXP_BOTTLE.equals(item)) {
+					total += item.getAmount();
+				}
+			}
+		}
+		return total;
+	}
+
 
 	/**
 	 * Attempts to reduce the complexity of all materials to a more
@@ -170,5 +212,237 @@ public class Utilities {
 		default:
 			return ArmorType.NONE;
 		}
+	}
+	
+	/**
+	 * Supported data right now:
+	 * 
+	 * "ammo": String with unique Bullet name of the ammo loaded
+	 * "clip": String with unique clip name of the clip used, if applicable
+	 * "rounds": Integer with # of bullets or size of clip
+	 * "type": AmmoType; stored as a string, but we convert for you
+	 * "lifetimeShots": total shots fired over whole life, a Long
+	 * "health": remaining shots until 0 health, basically a hidden durability.
+	 * "owner": UUID of last user.
+	 * "group": String value describing the Citadel group this gun is locked to, if supported. (TODO)
+	 * 
+	 * @param gun
+	 * @return
+	 */
+	public static Map<String, Object> getGunData(ItemStack gun) {
+		net.minecraft.server.v1_12_R1.ItemStack nmsGun = CraftItemStack.asNMSCopy(gun);
+		Map<String, Object> gunMap = new HashMap<String, Object>();
+		if (nmsGun.hasTag()) {
+			NBTTagCompound compound = nmsGun.getTag();
+			NBTBase gunDataStub = compound.get("GunData");
+			if (gunDataStub != null) {
+				NBTTagCompound gunData = (NBTTagCompound) gunDataStub;
+				
+				if (gunData.hasKey("ammo")) {
+					gunMap.put("ammo", gunData.getString("ammo"));
+				}
+				
+				if (gunData.hasKey("clip")) {
+					gunMap.put("clip", gunData.getString("clip"));
+				}
+				
+				if (gunData.hasKey("rounds")) {
+					gunMap.put("rounds", gunData.getInt("rounds"));
+				}
+				
+				if (gunData.hasKey("type")) {
+					gunMap.put("type", AmmoType.valueOf(gunData.getString("type")));
+				}
+				
+				if (gunData.hasKey("lifetimeShots")) {
+					gunMap.put("lifetimeShots", gunData.getLong("lifetimeShots"));
+				}
+				
+				if (gunData.hasKey("health")) {
+					gunMap.put("health", gunData.getInt("health"));
+				}
+				
+				if (gunData.b("owner")) {
+					gunMap.put("owner", gunData.a("owner"));
+				}
+				
+				if (gunData.hasKey("group")) {
+					gunMap.put("group", gunData.getString("group"));
+				}
+			}
+		}
+		return gunMap;
+	}
+	
+	/**
+	 * This will update the fields passed in via the map, leaving other data unmodified.
+	 * 
+	 * @param gun the gun item to update
+	 * @param update the limited set of data to update, fields not in the map are unchanged. A field in the map with NULL as value is removed.
+	 * @return the ItemStack, augmented
+	 */
+	public static ItemStack updateGunData(ItemStack gun, Map<String, Object> update) {
+		net.minecraft.server.v1_12_R1.ItemStack nmsGun = CraftItemStack.asNMSCopy(gun);
+		NBTTagCompound compound = nmsGun.hasTag() ? nmsGun.getTag() : new NBTTagCompound();
+		NBTBase gunDataStub = compound.get("GunData");
+		NBTTagCompound gunData = null;
+		if (gunDataStub != null) {
+			gunData = (NBTTagCompound) gunDataStub;
+		} else {
+			gunData = new NBTTagCompound();
+		}
+		
+		if (update.containsKey("ammo")) {
+			Object value = update.get("ammo");
+			if (value == null) {
+				gunData.remove("ammo");
+			} else {
+				gunData.setString("ammo", (String) value);
+			}
+		}
+		
+		if (update.containsKey("clip")) {
+			Object value = update.get("clip");
+			if (value == null) {
+				gunData.remove("clip");
+			} else {
+				gunData.setString("clip", (String) value);
+			}
+		}
+		
+		if (update.containsKey("rounds")) {
+			Object value = update.get("rounds");
+			if (value == null) {
+				gunData.remove("rounds");
+			} else {
+				gunData.setInt("rounds", (Integer) value);
+			}
+		}
+		
+		if (update.containsKey("type")) {
+			Object value = update.get("type");
+			if (value == null) {
+				gunData.remove("type");
+			} else {
+				gunData.setString("type", ((AmmoType) value).toString());
+			}
+		}
+		
+		if (update.containsKey("lifetimeShots")) {
+			Object value = update.get("lifetimeShots");
+			if (value == null) {
+				gunData.remove("lifetimeShots");
+			} else {
+				gunData.setLong("lifetimeShots", (Long) value);
+			}
+		}
+		
+		if (update.containsKey("health")) {
+			Object value = update.get("health");
+			if (value == null) {
+				gunData.remove("health");
+			} else {
+				gunData.setInt("health", (Integer) value);
+			}
+		}
+		
+		if (update.containsKey("owner")) {
+			Object value = update.get("owner");
+			if (value == null) {
+				gunData.remove("ownerMost"); // s + "Most" / "Least"
+				gunData.remove("ownerLeast");
+			} else {
+				gunData.a("owner", (UUID) value);
+			}
+		}
+		
+		if (update.containsKey("group")) {
+			Object value = update.get("group");
+			if (value == null) {
+				gunData.remove("group");
+			} else {
+				gunData.setString("group", (String) value);
+			}
+
+		}
+		compound.set("GunData", gunData);
+		nmsGun.setTag(compound);
+		
+		return CraftItemStack.asBukkitCopy(nmsGun);
+	}
+	
+	
+	
+	
+	/**
+	 * Supported data right now:
+	 * 
+	 * "ammo": String with unique Bullet name of the ammo loaded
+	 * "rounds": Integer with # of bullets in clip
+	 * 
+	 * @param clip
+	 * @return
+	 */
+	public static Map<String, Object> getClipData(ItemStack clip) {
+		net.minecraft.server.v1_12_R1.ItemStack nmsClip = CraftItemStack.asNMSCopy(clip);
+		Map<String, Object> clipMap = new HashMap<String, Object>();
+		if (nmsClip.hasTag()) {
+			NBTTagCompound compound = nmsClip.getTag();
+			NBTBase clipDataStub = compound.get("ClipData");
+			if (clipDataStub != null) {
+				NBTTagCompound gunData = (NBTTagCompound) clipDataStub;
+				
+				if (gunData.hasKey("ammo")) {
+					clipMap.put("ammo", gunData.getString("ammo"));
+				}
+				
+				if (gunData.hasKey("rounds")) {
+					clipMap.put("rounds", gunData.getInt("rounds"));
+				}
+			}
+		}
+		return clipMap;
+	}
+	
+	/**
+	 * This will update the fields passed in via the map, leaving other data unmodified.
+	 * 
+	 * @param clip the clip item to update
+	 * @param update the limited set of data to update, fields not in the map are unchanged. A field in the map with NULL as value is removed.
+	 * @return the ItemStack, augmented
+	 */
+	public static ItemStack updateClipData(ItemStack clip, Map<String, Object> update) {
+		net.minecraft.server.v1_12_R1.ItemStack nmsClip = CraftItemStack.asNMSCopy(clip);
+		NBTTagCompound compound = nmsClip.hasTag() ? nmsClip.getTag() : new NBTTagCompound();
+		NBTBase clipDataStub = compound.get("ClipData");
+		NBTTagCompound clipData = null;
+		if (clipDataStub != null) {
+			clipData = (NBTTagCompound) clipDataStub;
+		} else {
+			clipData = new NBTTagCompound();
+		}
+		
+		if (update.containsKey("ammo")) {
+			Object value = update.get("ammo");
+			if (value == null) {
+				clipData.remove("ammo");
+			} else {
+				clipData.setString("ammo", (String) value);
+			}
+		}
+		
+		if (update.containsKey("rounds")) {
+			Object value = update.get("rounds");
+			if (value == null) {
+				clipData.remove("rounds");
+			} else {
+				clipData.setInt("rounds", (Integer) value);
+			}
+		}
+
+		compound.set("ClipData", clipData);
+		nmsClip.setTag(compound);
+		
+		return CraftItemStack.asBukkitCopy(nmsClip);
 	}
 }

@@ -18,16 +18,23 @@ import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.google.common.reflect.ClassPath;
+import com.programmerdan.minecraft.addgun.ammo.Bullets;
 import com.programmerdan.minecraft.addgun.commands.CommandHandler;
 import com.programmerdan.minecraft.addgun.guns.BasicGun;
+import com.programmerdan.minecraft.addgun.guns.Guns;
+import com.programmerdan.minecraft.addgun.guns.StandardGun;
 import com.programmerdan.minecraft.addgun.listeners.PlayerListener;
 
 public class AddGun  extends JavaPlugin {
 	private static AddGun instance;
 	private CommandHandler commandHandler;
 	private PlayerListener playerListener;
+
+	private Map<String, BasicGun> customGuns;
 	
-	private Map<String, BasicGun> guns;
+	private Guns guns;
+	
+	private Bullets ammo;
 	
 	private int xpPerBottle;
 	
@@ -39,8 +46,9 @@ public class AddGun  extends JavaPlugin {
 		reloadConfig();
 		
 		AddGun.instance = this;
-		guns = new ConcurrentHashMap<String, BasicGun>();
 
+		config(getConfig());
+		addBullets(getConfig());
 		addGuns(getConfig());
 
 		registerPlayerListener();
@@ -66,6 +74,14 @@ public class AddGun  extends JavaPlugin {
 		return this.commandHandler;
 	}
 	
+	public Guns getGuns() {
+		return guns;
+	}
+	
+	public Bullets getAmmo() {
+		return ammo;
+	}
+	
 	
 	private void registerCommandHandler() {
 		if (!this.isEnabled()) return;
@@ -86,14 +102,20 @@ public class AddGun  extends JavaPlugin {
 			this.setEnabled(false);
 		}	
 	}
-	
-	private void addGuns(FileConfiguration config) {
+
+	private void config(FileConfiguration config) {
 		ConfigurationSection global = config.getConfigurationSection("global");
 		if (global != null) {
 			this.xpPerBottle = global.getInt("xpPerBottle", 10);
 		} else {
 			this.xpPerBottle = 10;
 		}
+
+	}
+	
+	private void addBullets(FileConfiguration config) {}
+	
+	private void addGuns(FileConfiguration config) {
 		
 		ConfigurationSection guns = config.getConfigurationSection("guns");
 		if (guns == null || guns.getKeys(false) == null) {
@@ -129,30 +151,34 @@ public class AddGun  extends JavaPlugin {
 			try {
 				BasicGun possibleGun = possibleGuns.get(gun);
 				if (possibleGun == null) {
-					warning("Gun {0} configured, but not found to be available.", gun);
+					StandardGun newGun = new StandardGun(gun);
+					newGun.configure(guns.getConfigurationSection(gun));
+					this.guns.registerGun(newGun);
+					
+					info("Configured standard gun {0} for use", gun);
 				} else {
 					possibleGun.configure(guns.getConfigurationSection(gun));
 					
 					this.getServer().getPluginManager().registerEvents((Listener) possibleGun, this);
 					
-					this.guns.put(possibleGun.getName(), possibleGun);
-					info("Configured gun {0} for use", gun);
+					this.customGuns.put(possibleGun.getName(), possibleGun);
+					info("Configured fancy gun {0} for use", gun);
 				}
 			} catch (Exception e) {
 				warning("Gun {0} failed during setup", gun);
 				warning("Exception trapped: ", e);
 			}
 		}
+		
+		/*
+		 * Register general gun handler
+		 */
+		if (this.guns.hasGuns()) {
+			this.getServer().getPluginManager().registerEvents(this.guns, this);
+			info("Registered Gun Manager's events");
+		}
 	}
 
-	public Set<String> getGuns() {
-		return guns.keySet();
-	}
-	
-	public BasicGun getGun(String name) {
-		return guns.get(name);
-	}
-	
 	/**
 	 * 
 	 * @return the static global instance. Not my fav pattern, but whatever.

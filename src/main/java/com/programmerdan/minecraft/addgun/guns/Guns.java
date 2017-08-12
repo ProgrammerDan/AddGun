@@ -2,17 +2,20 @@ package com.programmerdan.minecraft.addgun.guns;
 
 import static com.programmerdan.minecraft.addgun.guns.Utilities.computeTotalXP;
 import static com.programmerdan.minecraft.addgun.guns.Utilities.detailedHitBoxLocation;
+import static com.programmerdan.minecraft.addgun.guns.Utilities.getGunData;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Damageable;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.Event;
@@ -28,7 +31,9 @@ import org.bukkit.util.Vector;
 
 import com.google.common.collect.Sets;
 import com.programmerdan.minecraft.addgun.AddGun;
+import com.programmerdan.minecraft.addgun.ammo.AmmoType;
 import com.programmerdan.minecraft.addgun.ammo.Bullet;
+import com.programmerdan.minecraft.addgun.listeners.PlayerListener;
 
 public class Guns implements Listener {
 
@@ -41,7 +46,7 @@ public class Guns implements Listener {
 	/**
 	 * Here we keep a special list of registered guntypes.
 	 */
-	public static Map<Material, Set<StandardGun>> gunMap = new ConcurrentHashMap<>();
+	private Map<Material, Set<StandardGun>> gunMap = new ConcurrentHashMap<>();
 
 	/**
 	 * this keeps track of travel paths for bullets (TODO: refactor)
@@ -120,7 +125,7 @@ public class Guns implements Listener {
 				Damageable dhit = (Damageable) hit;
 				AddGun.getPlugin().debug("Processing damage for {0} at {1} due to {2} intersection with {3} bullet", dhit,
 						dhit.getLocation(), whereEnd.nearestHitPart, bulletType.getName());
-				gun.managedDamage(whereEnd, dhit, bullet, bulletType);
+				gun.manageDamage(whereEnd, dhit, bullet, bulletType);
 			} else {
 				AddGun.getPlugin().debug("Processing damage for {0} due to intersection with {1} bullet", hit, bulletType.getName());
 				gun.manageHit(whereEnd, hit, bullet, bulletType);
@@ -154,21 +159,25 @@ public class Guns implements Listener {
 		if (gun == null) // can't match it
 			return;
 		
+		Map<String, Object> gunData = getGunData(item);
+		
 		Player player = event.getPlayer();
 
-		if (!gun.isAlive(item)) {
+		if (!gun.isAlive(gunData)) {
 			player.sendMessage(
 					ChatColor.AQUA + gun.getName() + ChatColor.RED + " needs repair before it can be used again!");
 			return;
 		}
 		
-		if (!gun.isLoaded(item)) {
+		AmmoType gunType = (AmmoType) gunData.get("type");
+		
+		if (!AmmoType.INVENTORY.equals(gunType) && !gun.isLoaded(gunData)) {
 			player.sendMessage(
 					ChatColor.AQUA + gun.getName() + ChatColor.RED + " is out of ammo, reload it!");
 			return;
 		}
 		
-		Bullet bulletType = gun.getAmmo(player);
+		Bullet bulletType = AmmoType.INVENTORY.equals(gunType) ? gun.getAmmo(player) : gun.getAmmo(gunData);
 		
 		if (bulletType == null) {
 			player.sendMessage(ChatColor.AQUA + gun.getName() + ChatColor.RED + " has no useable ammo!");
@@ -184,16 +193,21 @@ public class Guns implements Listener {
 		if (nextUse == null || nextUse < System.currentTimeMillis()) {
 			gun.setCooldown(player.getUniqueId(), System.currentTimeMillis() + gun.getCooldown());
 
+			// TODO: fire an event off here to see if anyone wants to prevent firing
+			// FireStandardGunEvent event = new FireStandardGunEvent(gun, bulletType, entity)
+			// Bukkit.getPluginManager().callEvent(event);
+			// if (event.isCancelled()) { /* send message */ return; }
+			
 			// consume bullet and XP now.
-			if (!gun.payForShot(player, bulletType)) {
+			if (!gun.payForShot(player, bulletType, item, gunData, event.getHand())) {
 				player.sendMessage(ChatColor.AQUA + gun.getName() + ChatColor.RED + " jammed! Bullet and fuel wasted.");
 			} else {
 				
 				// test for misfire
-				if (gun.misfire(player, bulletType)) {
+				if (gun.misfire(player, bulletType, item, gunData, event.getHand())) {
 					// test for blowout
 					
-					if (gun.blowout(player, bulletType)) {
+					if (gun.blowout(player, bulletType, item, gunData, event.getHand())) {
 						// handle explosion
 					}
 				} else {
@@ -206,12 +220,29 @@ public class Guns implements Listener {
 					Location origin = player.getLocation().clone().add(bbOff.getX(), offset, bbOff.getZ());
 					
 					Location baseLocation = player.getEyeLocation().clone();
-					float yawJitter = (float) ((Math.random() - 0.5) * 30.0 * accuracy);
-					float pitchJitter = (float) ((Math.random() - 0.5) * 30.0 * accuracy);
+					
+					double minJitter = gun.getMinMissRadius() + bulletType.getMinMissRadius();
+					double maxJitter = gun.getMaxMissRadius() + bulletType.getMaxMissRadius();
+					
+					if (minJitter < 0.0d) {
+						minJitter = 0.0d;
+					}
+					if (maxJitter < 0.0d) {
+						maxJitter = 0.0d;
+					}
+					if (maxJitter < minJitter) {
+						maxJitter = minJitter;
+					}
+					
+					double rand1 = Math.random() - 0.5;
+					double rand2 = Math.random() - 0.5;
+					
+					float yawJitter = (float) (((rand1 * (maxJitter - minJitter)) + Math.signum(rand1) * minJitter) * accuracy);
+					float pitchJitter = (float) (((rand2 * (maxJitter - minJitter)) + Math.signum(rand2) * minJitter) * accuracy);
 					baseLocation.setYaw(baseLocation.getYaw() + yawJitter);
 					baseLocation.setPitch(baseLocation.getPitch() + pitchJitter);
 					if (accuracy > 0.25) {
-						player.sendMessage(ChatColor.AQUA + gun.getName() + ChatColor.RED + " is heavy! Crouch and hold still to improve accuracy.");
+						player.sendMessage(ChatColor.AQUA + gun.getName() + ChatColor.RED + " isn't easy to aim. Crouch and hold still to improve accuracy.");
 					} else if (accuracy < 0.01) {
 						// TODO: remove
 						player.sendMessage(ChatColor.AQUA + gun.getName() + ChatColor.GREEN + " is shooting straight, good work.");
@@ -292,5 +323,73 @@ public class Guns implements Listener {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Returns a value from 1.0 to 0.0. Zero is best, least jitter. One is worst, most jitter.
+	 * @param gun the Gun firing
+	 * @param bullet the bullet being fired
+	 * @param entity the entities UUID as used by tracking.
+	 * @return value from 0 to 1
+	 */
+	public double computeAccuracyFor(StandardGun gun, Bullet bullet, LivingEntity entity) {
+		// TODO: factor in bullet and gun
+		double internalAccuracy = computeAccuracyFor(entity.getUniqueId());
+		
+		// TODO: fire an event off here to see if anyone wants to modify jitter
+		// DetermineAccuracyEvent event = new DetermineAccuracyEvent(gun, bullet, entity, internalAccuracy)
+		// Bukkit.getPluginManager().callEvent(event);
+		// internalAccuracy = event.getAccuracy();
+		
+		return internalAccuracy;
+	}
+	
+
+	/**
+	 * Internally computes jitter based only on stillness and sneakness.
+	 * 
+	 * @param entity the entity's UUID to check
+	 * @return value from 0 to 1 where 1 is worse and 0 is best
+	 */
+	private double computeAccuracyFor(UUID entity) {
+		long now = System.currentTimeMillis();
+		PlayerListener listener = AddGun.getPlugin().getPlayerListener();
+		Long sneak = listener.getSneakingSince(entity);
+		Long still = listener.getStillSince(entity);
+		
+		double base = 1.0d;
+		if (sneak == null && still == null) { // not sneaking, not still.
+			return 1.0d;
+		}
+		if (sneak != null) { // sneaking
+			base -= timeSigmoid((now - sneak) / 1000.0d);
+		}
+		if (still != null) { // still
+			base -= timeSigmoid((now - still) / 1000.0d);
+		}
+		
+		return base > 0.0d ? base : 0.0d;
+	}
+	
+	/**
+	 * private function to compute a soft sigmoid based on
+	 * 0 to 15000 milliseconds elapsed. 
+	 * Inflection is at 7500 milliseconds. Asymptotically approaches
+	 * .5 as time increases
+	 * @param elapsed in fractions of a second
+	 * @return
+	 */
+	private double timeSigmoid(double elapsed) {
+		double term = (elapsed - 7.5d) / 2.5d;
+		return 0.25d + 0.25 * (term / Math.sqrt(1.0 + term * term));
+	}
+
+
+	/**
+	 * True is guns are configured, false otherwise.
+	 * @return true for yes
+	 */
+	public boolean hasGuns() {
+		return !this.gunMap.isEmpty();
 	}
 }

@@ -13,6 +13,7 @@ import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Damageable;
 import org.bukkit.entity.Entity;
@@ -45,7 +46,10 @@ import com.programmerdan.minecraft.addgun.ammo.Bullet;
 import com.programmerdan.minecraft.addgun.ammo.Clip;
 
 import static com.programmerdan.minecraft.addgun.guns.Utilities.getArmorType;
+import static com.programmerdan.minecraft.addgun.guns.Utilities.getInvXp;
 import static com.programmerdan.minecraft.addgun.guns.Utilities.computeTotalXP;
+import static com.programmerdan.minecraft.addgun.guns.Utilities.getGunData;
+import static com.programmerdan.minecraft.addgun.guns.Utilities.updateGunData;
 
 public class StandardGun implements BasicGun {
 
@@ -219,8 +223,7 @@ public class StandardGun implements BasicGun {
 	 */
 	private double sneakInflection = 7.5d;
 	
-	protected StandardGun(String name) {
-		this.gunExample = this.generateGun();
+	public StandardGun(String name) {
 		this.name = name;
 		tag = ChatColor.BLACK + "Gun: "
 				+ Integer.toHexString(this.getName().hashCode() + this.getName().length());
@@ -228,8 +231,27 @@ public class StandardGun implements BasicGun {
 				+ Integer.toHexString(this.getName().hashCode() + this.getName().length());
 	}
 	
-	public ItemStack generateGun() {
-		return gunExample.clone();
+	@Override
+	public void configure(ConfigurationSection config) {
+		if (config != null) {
+			enabled = true;
+			
+			// we assume name is configured.
+			
+			// the map of lore on a gun is as follows:
+			/*
+			 * line 1: gunTag
+			 * line 2: Health: 100%
+			 * line 3: Ammo: n Bullets
+			 *   or
+			 * line 3: Ammo: Clip of n Bullets
+			 *   or
+			 * line 3: Ammo: Unloaded
+			 *   or
+			 * line 3: Ammo: Autofeed Bullet
+			 * line 4: <Click for supported Ammo>
+			 */
+		}
 	}
 
 	public boolean isEnabled() {
@@ -366,6 +388,14 @@ public class StandardGun implements BasicGun {
 
 	public void setCooldown(long cooldown) {
 		this.cooldown = cooldown;
+	}
+	
+	public Long getCooldown(UUID entity) {
+		return this.cooldowns.get(entity);
+	}
+	
+	public void setCooldown(UUID entity, Long value) {
+		this.cooldowns.put(entity, value);
 	}
 
 	public boolean isLimitToOne() {
@@ -753,7 +783,7 @@ public class StandardGun implements BasicGun {
 	 * @return true if enough fuel, false otherwise
 	 */
 	boolean hasFuel(LivingEntity entity, Bullet bullet) {
-		if (!this.usesXP && bullet.getUsesXP()) return true; // no xp needs.
+		if (!this.usesXP && !bullet.getUsesXP()) return true; // no xp needs.
 		
 		int totalDraw = this.xpDraw + bullet.getXPDraw();
 		
@@ -794,34 +824,55 @@ public class StandardGun implements BasicGun {
 	/**
 	 * Checks if this gun has enough health to still fire
 	 * 
-	 * @param toCheck Does _not_ confirm if gun, just check durability.
+	 * @param toCheck Confirms that object has gun nbt, otherwise doesn't check if gun, just checks health
 	 * @return true if alive, false otherwise.
 	 */
-	private boolean isAlive(ItemStack toCheck) {
-		if (toCheck.getDurability() < (gunExample.getType().getMaxDurability() - (this.maxUses * damagePerUse)))
-			return true;
+	public boolean isAlive(ItemStack toCheck) {
+		if (toCheck == null) return false;
+		return isAlive(getGunData(toCheck));
+	}
+	
+	/**
+	 * Checks if this gun is alive using a converted NBT data package.
+	 * 
+	 * @param data the data map to check, must have a "health" object
+	 * @return true if health is above 0, false otherwise.
+	 */
+	public boolean isAlive(Map<String, Object> data) {
+		if (data == null || data.isEmpty()) return false;
+		
+		Object health = data.get("health");
+		if (health != null && health instanceof Integer) {
+			return ((Integer) health) > 0;
+		}
 		return false;
 	}
 	
 	/**
 	 * Checks if this gun has bullets / clips with bullets
 	 * 
-	 * @param toCheck Does _not_ confirm if gun, just checks for ammo signals.
+	 * @param toCheck Confirms that object has gun nbt, otherwise Does _not_ confirm if gun, just checks for ammo signals.
 	 * @return true if ammo found, false otherwise. Does not check if ammo works or not.
 	 */
 	public boolean isLoaded(ItemStack toCheck) {
-		if (!toCheck.hasItemMeta())
-			return false;
+		if (toCheck == null ) return false;
+		return isLoaded(getGunData(toCheck));
+	}
+	
+	/**
+	 * Checks if this gun is alive using a converted NBT data package
+	 * 
+	 * @param data the data map to check, must have a "rounds" object
+	 * @return true if "rounds" is above 0, false otherwise.
+	 */
+	public boolean isLoaded(Map<String, Object> data) {
+		if (data == null || data.isEmpty()) return false;
 		
-		ItemMeta meta = toCheck.getItemMeta();
-		
-		if (meta.getLore().contains("Bullets Loaded:")) {
-			Bullet bulletType = Bullets.getBulletsFromMeta(meta);
-			return bulletType != null;
-		} else if (meta.getLore().contains("Clip loaded:")) {
-			Clip clip = Clip.getClipFromMeta(meta);
-			return clip.hasBullets();
+		Object rounds = data.get("rounds");
+		if (rounds != null && rounds instanceof Integer) {
+			return ((Integer) rounds) > 0;
 		}
+		
 		return false;
 	}
 
@@ -841,5 +892,172 @@ public class StandardGun implements BasicGun {
 	 */
 	public String getGunTag() {
 		return this.tag;
+	}
+	
+	/**
+	 * Gets the currently loaded Bullet type, regardless of clip or no clip
+	 * 
+	 * @param toCheck the gun to check
+	 * @return the ammo type, or null if unloaded
+	 */
+	public Bullet getAmmo(ItemStack toCheck) {
+		if (toCheck == null) return null;
+		
+		return getAmmo(getGunData(toCheck));
+	}
+
+	public Bullet getAmmo(Map<String, Object> data) {
+		if (data == null || data.isEmpty()) return null;
+		
+		Object ammo = data.get("ammo");
+		if (ammo != null && ammo instanceof String) {
+			return AddGun.getPlugin().getAmmo().getBullet((String) ammo);
+		}
+
+		return null;
+	}
+	
+	/**
+	 * Returns a 2 element array -- element 0 is the gun, possibly modified, element 1 is the ammo/clip if any.
+	 * 
+	 * @param gun the gun to remove ammo from
+	 * @return the gun and ammo if any, as a 2 element array
+	 */
+	public ItemStack[] unloadAmmo(ItemStack gun) {
+		if (gun == null) return new ItemStack[] {gun, null};
+		
+		Map<String, Object> gunData = getGunData(gun);
+		if (gunData == null || gunData.isEmpty()) return new ItemStack[] {gun, null};
+		
+		AmmoType type = (AmmoType) gunData.get("type");
+		ItemStack ammo = null;
+		Bullet bullet = null;
+		switch(type) {
+		case BULLET:
+			if (!gunData.containsKey("ammo")) return new ItemStack[] {gun, null};
+			bullet = AddGun.getPlugin().getAmmo().getBullet((String) gunData.get("ammo"));
+
+			if ((Integer) gunData.get("rounds") > 0) {
+				ammo = bullet.getBulletItem();
+				ammo.setAmount((Integer) gunData.get("rounds"));
+			}
+			
+			gunData.put("ammo", null);
+			break;
+		case CLIP:
+			if (!gunData.containsKey("ammo") || !gunData.containsKey("clip")) return new ItemStack[] {gun, null};
+			
+			bullet = AddGun.getPlugin().getAmmo().getBullet((String) gunData.get("ammo"));
+			Clip clip = AddGun.getPlugin().getAmmo().getClip((String) gunData.get("clip"));
+			
+			if ((Integer) gunData.get("rounds") > 0) {
+				ammo = clip.getClipItem(bullet, (Integer) gunData.get("rounds"));
+			} else {
+				ammo = clip.getClipItem(bullet, 0);
+			}
+			break;
+		case INVENTORY:
+		default:
+			break;
+		}
+		gunData.clear();
+		gunData.put("ammo", null);
+		gunData.put("clip", null);
+		gunData.put("rounds", Integer.valueOf(0));
+		
+		gun = updateGunData(gun, gunData);
+		
+		return new ItemStack[] {gun, ammo};
+	}
+	
+	/**
+	 * Attempts to load the gun with ammo, based on ItemStacks. If the gun is already loaded, what happens depends
+	 * a lot on what's in the gun already. If the ammo being presented is the same type, it'll "top off" the load.
+	 * If the gun is loaded with a clip, and a clip is presented and valid, it'll swap out the clip.
+	 * 
+	 * @param gun the gun to load
+	 * @param ammo the ammo to use (bullets or clips)
+	 * @return a 2 element array; element 0 is the gun, potentially modified. element 1 is the remaining ammo or null.
+	 */
+	public ItemStack[] loadAmmo(ItemStack gun, ItemStack ammo) {
+		if (gun == null || ammo == null) return new ItemStack[] {gun, ammo};
+		
+		Map<String, Object> gunData = getGunData(gun);
+		if (gunData == null || gunData.isEmpty()) return new ItemStack[] {gun, ammo};
+		
+		AmmoType type = (AmmoType) gunData.get("type");
+		switch(type) {
+		case BULLET:
+			Bullet bullet = AddGun.getPlugin().getAmmo().findBullet(ammo);
+			if (bullet != null) { // else, takes bullets, but something else was offered.
+				if (this.allBullets.contains(bullet.getName())) {
+					if (!gunData.containsKey("ammo")) { // unloaded! easy path
+						int load = Math.min(ammo.getAmount(), this.maxAmmo);
+						gunData.clear();
+						gunData.put("ammo", bullet.getName());
+						gunData.put("rounds", load);
+						ammo.setAmount(ammo.getAmount() - load);
+						if (ammo.getAmount() <= 0) {
+							ammo = null;
+						}
+						gun = updateGunData(gun, gunData);
+					} else { //loaded!
+						Bullet loadedBullet = AddGun.getPlugin().getAmmo().getBullet((String) gunData.get("ammo"));
+						if (loadedBullet.equals(bullet)) { // same kind of bullet!
+							int currentLoad = (Integer) gunData.get("rounds");
+							int load = Math.min( currentLoad + ammo.getAmount(), this.maxAmmo);
+							gunData.clear();
+							gunData.put("rounds", load);
+							ammo.setAmount(currentLoad + ammo.getAmount() - this.maxAmmo);
+							if (ammo.getAmount() <= 0) {
+								ammo = null;
+							}
+							gun = updateGunData(gun, gunData);
+						} // either can't figure out the bullet type or can't safely "swap" bullets, do a clean unload first
+					}
+				}
+			}
+			break;
+		case CLIP:
+			Clip clip = AddGun.getPlugin().getAmmo().findClip(ammo);
+			if (clip != null) { // else, takes bullets, but something else was offered.
+				if (this.allClips.contains(clip.getName())) {
+					if (!gunData.containsKey("clip")) { // unloaded! easy path
+						gunData.clear();
+						gunData.put("ammo", clip.getBulletType(ammo).getName());
+						gunData.put("clip", clip.getName());
+						gunData.put("rounds", clip.getRounds(ammo));
+						ammo.setAmount(ammo.getAmount() - 1);
+						if (ammo.getAmount() <= 0) {
+							ammo = null;
+						}
+						gun = updateGunData(gun, gunData);
+					} else { //loaded!
+						if (ammo.getAmount() == 1) { // we can swap!
+							Bullet oldBullet = AddGun.getPlugin().getAmmo().getBullet((String) gunData.get("ammo"));
+							Clip oldClip = AddGun.getPlugin().getAmmo().getClip((String) gunData.get("clip"));
+							Integer oldRounds = (Integer) gunData.get("rounds");
+							if (oldRounds <= 0) {
+								oldRounds = 0;
+							}
+
+							gunData.clear();
+							gunData.put("ammo", clip.getBulletType(ammo).getName());
+							gunData.put("clip", clip.getName());
+							gunData.put("rounds", clip.getRounds(ammo));
+							gun = updateGunData(gun, gunData);
+
+							ammo = oldClip.getClipItem(oldBullet, oldRounds);
+						} // else we do nothing, we can't clean swap.
+					}
+				}
+			}
+			break;
+		case INVENTORY:
+		default:
+			// do nothing
+			break;
+		}
+		return new ItemStack[] {gun, ammo};
 	}
 }
