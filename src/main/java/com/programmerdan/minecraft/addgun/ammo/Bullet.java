@@ -217,9 +217,6 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 		this.sneakSpread = sneakSpread;
 	}
 	
-	
-	public double 
-	
 	// bypass stuff is TODO
 	
 	/**
@@ -290,7 +287,7 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 		this.scatterRadius = config.getDouble("scatter.radius", scatterRadius);
 		
 		this.explosionChance = config.getDouble("explosion.chance", explosionChance);
-		this.explosionLevel = config.getInt("explosion.level", explosionLevel);
+		this.explosionLevel = (float) config.getDouble("explosion.level", explosionLevel);
 		
 		this.fireChance = config.getDouble("incendiary.chance", fireChance);
 		this.fireTicks = config.getInt("incendiary.ticks", fireTicks);

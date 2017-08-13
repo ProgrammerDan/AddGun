@@ -1,10 +1,13 @@
 package com.programmerdan.minecraft.addgun.ammo;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -31,6 +34,16 @@ public class Clip {
 	private Set<String> allowedBullets = Sets.newConcurrentHashSet();
 	
 	private Map<String, Integer> allowsRounds = new ConcurrentHashMap<String, Integer>();
+
+	/**
+	 * Gets how many of each bullet is permitted for this clip.
+	 * 
+	 * @param bulletName the name of the bullet type
+	 * @return the # allowed, or 0
+	 */
+	public int maxRounds(String bulletName) {
+		return allowsRounds.containsKey(bulletName) ? allowsRounds.get(bulletName) : 0;
+	}
 	
 	/**
 	 * Lightweight check to see if the given itemstack is a clip
@@ -85,7 +98,7 @@ public class Clip {
 			clipData.put("rounds", Integer.valueOf(0));
 		}
 		
-		clip = updateClipData(clip, clipData);
+		clip = updateClipLore(updateClipData(clip, clipData));
 
 		return clip;
 	}
@@ -113,7 +126,7 @@ public class Clip {
 				int toLoad = Math.min(this.allowsRounds.get(bullet.getName()), i + ((Integer) clipData.get("rounds"))); // max vs. current + new
 				clipData.put("rounds", Integer.valueOf(toLoad));
 				i = i - toLoad;
-				clip = updateClipData(clip, clipData);
+				clip = updateClipLore(updateClipData(clip, clipData));
 			} else { // different!
 				bullets.setAmount(i);
 				return new ItemStack[] {clip, bullets}; // cancel
@@ -123,7 +136,7 @@ public class Clip {
 			int toLoad = Math.min(this.allowsRounds.get(bullet.getName()), i);
 			clipData.put("rounds", Integer.valueOf(toLoad));
 			i = i - toLoad; // remainder
-			clip = updateClipData(clip, clipData);
+			clip = updateClipLore(updateClipData(clip, clipData));
 		}
 		if (i > 0)  {
 			bullets.setAmount(i);
@@ -156,7 +169,7 @@ public class Clip {
 				}
 				clipData.put("ammo", null);
 				clipData.put("rounds", 0);
-				clip = updateClipData(clip, clipData);
+				clip = updateClipLore(updateClipData(clip, clipData));
 			} else { // otherwise it's... invalid ammo
 				// unable to unload! bad clip?!
 				// TODO messaging
@@ -194,5 +207,43 @@ public class Clip {
 		}
 		
 		return null;
+	}
+	
+	/**
+	 * Given a clip object, updates the lore to reflect the NBT
+	 * 
+	 * @param clip the clip to update
+	 * @return the clip, with updated lore.
+	 */
+	public ItemStack updateClipLore(ItemStack clip) {
+		ItemMeta meta = clip.getItemMeta();
+		List<String> lore = meta.getLore();
+		if (lore == null) {
+			lore = new ArrayList<String>();
+		} else {
+			lore.clear();
+		}
+		lore.add(this.tag);
+		Map<String, Object> clipData = getClipData(clip);
+		
+		String ammo = clipData.containsKey("ammo") ? (String) clipData.get("ammo") : null;
+		Integer rounds = (Integer) clipData.get("rounds");
+		
+		if (ammo != null) { // locked / has a bullet
+			lore.add(ChatColor.GREEN + "Magazine of " + ChatColor.GRAY + ammo);
+			if (rounds <= 0) {
+				lore.add(ChatColor.RED + "  EMPTY " + ChatColor.DARK_AQUA + "(out of " + ChatColor.WHITE + this.allowsRounds.get(ammo) + ChatColor.DARK_AQUA + " max)");
+			} else if (rounds == 1) {
+				lore.add(ChatColor.GOLD + "  1 " + ChatColor.BLUE + "Round " + ChatColor.DARK_AQUA + "(out of " + ChatColor.WHITE + this.allowsRounds.get(ammo) + ChatColor.DARK_AQUA + " max)");
+			} else {
+				lore.add(ChatColor.GREEN + String.format("  %d ", rounds) + ChatColor.BLUE + "Rounds " + ChatColor.DARK_AQUA + "(out of " + ChatColor.WHITE + this.allowsRounds.get(ammo) + ChatColor.DARK_AQUA + " max)");
+			}
+		} else {
+			lore.add(ChatColor.RED + "Magazine Empty");
+		}
+
+		meta.setLore(lore);
+		clip.setItemMeta(meta);
+		return clip;
 	}
 }

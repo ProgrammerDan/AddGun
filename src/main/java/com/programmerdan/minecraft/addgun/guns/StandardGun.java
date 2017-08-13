@@ -1,5 +1,7 @@
 package com.programmerdan.minecraft.addgun.guns;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -208,7 +210,7 @@ public class StandardGun implements BasicGun {
 	/**
 	 * This can be used to track any warnings sent to players and not resend
 	 */
-	private Map<UUID, String> warned = new ConcurrentHashMap<>();
+	private Map<UUID, Set<String>> warned = new ConcurrentHashMap<>();
 	/**
 	 * If the gun uses a cooldown, tracks which players are in cooldown and since when.
 	 */
@@ -252,21 +254,65 @@ public class StandardGun implements BasicGun {
 		if (config != null) {
 			enabled = true;
 			
-			// we assume name is configured.
+			this.gunExample = config.getItemStack("example");
+			if (this.gunExample == null) {
+				throw new IllegalArgumentException("No inventory representation (section example) provided for this gun, it cannot be instanced");
+			}
+
+			this.maxAmmo = config.getInt("ammo.max", 0);
 			
-			// the map of lore on a gun is as follows:
-			/*
-			 * line 1: gunTag
-			 * line 2: Health: 100%
-			 * line 3: Ammo: n Bullets
-			 *   or
-			 * line 3: Ammo: Clip of n Bullets
-			 *   or
-			 * line 3: Ammo: Unloaded
-			 *   or
-			 * line 3: Ammo: Autofeed Bullet
-			 * line 4: <Click for supported Ammo>
-			 */
+			if (config.contains("ammo.bullets")) {
+				this.allBullets = config.getStringList("ammo.bullets");
+				if (this.maxAmmo <= 0) {
+					this.ammoSource = AmmoType.INVENTORY;
+				} else {
+					this.ammoSource = AmmoType.BULLET;
+				}
+			} else if (config.contains("ammo.clips")) {
+				this.allClips = config.getStringList("ammo.clips");
+				this.ammoSource = AmmoType.CLIP;
+			}
+			
+			this.maxUses = config.getInt("health.max", maxUses);
+			this.middleRisk = config.getInt("health.misfire.inflection", middleRisk);
+			this.riskSpread = config.getInt("health.misfire.spread", riskSpread);
+			this.misfireBlowoutChance = config.getDouble("health.misfire.blowout.chance", misfireBlowoutChance);
+			this.baseBlowoutStrength = (float) config.getDouble("health.misfire.blowout.strength", baseBlowoutStrength);
+			
+			this.minSpeed = config.getDouble("speed.min", minSpeed);
+			this.maxSpeed = config.getDouble("speed.max", maxSpeed);
+			this.avgSpeed = (this.minSpeed + this.maxSpeed) / 2;
+			
+			this.bluntDamage = config.getDouble("damage.blunt", bluntDamage);
+			this.maxMissRadius = config.getDouble("miss.radius.max", maxMissRadius);
+			this.minMissRadius = config.getDouble("miss.radius.min", minMissRadius);
+			this.stillInflection = config.getDouble("miss.still.inflection", stillInflection);
+			this.stillSpread = config.getDouble("miss.still.spread", stillSpread);
+			this.sneakInflection = config.getDouble("miss.sneak.inflection", sneakInflection);
+			this.sneakSpread = config.getDouble("miss.sneak.spread", sneakSpread);
+			
+			this.xpDraw = config.getInt("ammo.xp", 0);
+			if (this.xpDraw > 0) {
+				this.usesXP = true;
+			}
+			
+			this.cooldown = config.getLong("cooldown.milliseconds", 0);
+			this.cooldownOnEquip = config.getBoolean("cooldown.equip", false);
+			this.hasCooldown = this.cooldown > 0;
+			
+			this.limitToOne = config.getBoolean("limits.onlyOne", false);
+			
+			Map<String, Object> gunData = new HashMap<String, Object>();
+			
+			gunData.put("rounds", Integer.valueOf(0));
+			
+			gunData.put("type", this.ammoSource);
+			
+			gunData.put("lifetimeShots", Long.valueOf(0l));
+						
+			gunData.put("health", this.maxUses);
+			
+			this.gunExample = updateGunData(this.gunExample, gunData);
 		}
 	}
 
@@ -512,6 +558,23 @@ public class StandardGun implements BasicGun {
 	 */
 	public void flightPath(Location start, Location end, Bullet type, boolean endOfFlight) {
 		// no special flight path stuff. maybe a whizzing sound?
+
+		World world = start.getWorld();
+		if (endOfFlight) {
+			// make a new sound where it hits.
+			world.playSound(end, Sound.ENTITY_FIREWORK_BLAST, 1.0f, 1.5f);
+		}
+		if (type.getFireChance() > 0.0d) {
+			if (start != null) {
+				double distance = end.distance(start);
+	
+				Vector vector = end.subtract(start).toVector();
+				vector = vector.multiply(1.0d / distance);
+				for (int i = 0; i < distance; i++) {
+					world.spawnParticle(Particle.FLAME, start.add(vector), 5);
+				}
+			}
+		}
 	}
 	
 	/**
@@ -755,14 +818,45 @@ public class StandardGun implements BasicGun {
 	/**
 	 * Any post-hit cleanup can be handled here. This would be stuff not associated with manageHit or manageDamage.
 	 * 
-	 *  Provided as a handy hook, but fine to leave as no-op.
+	 *  Currently handles explosions and fire.
 	 *  
 	 * @param hitData the Data matrix describing hit information
-	 * @param hit the Entity that was hit, after handling manageHit
+	 * @param hit the Entity that was hit, after handling manageHit -- or if ground impact, will be null.
 	 * @param bullet the "Projectile" bullet doing the hitting
 	 * @param bulletType the "Bullet" type of the projectile.
 	 */
-	public void postHit(HitDigest hitData, Entity hit, Projectile bullet, Bullet bulletType) {}
+	public void postHit(HitDigest hitData, Entity hit, Projectile bullet, Bullet bulletType) {
+		// this does any incendary effects / explosions for 
+		Location loc = hitData.hitLocation.clone();
+		World world = loc.getWorld();
+		
+		double random = Math.random();
+		if (random < bulletType.getExplosionChance()) {
+			// boom.
+			random = Math.random();
+			if (random < bulletType.getFireChance()) { // incendary!
+				// fire
+				world.createExplosion(loc, bulletType.getExplosionLevel(), true);
+			} else {
+				world.createExplosion(loc, bulletType.getExplosionLevel(), false);
+			}
+		}
+
+		random = Math.random();
+		if (hit != null && random < bulletType.getFireChance()) { // incendary!
+			// fire
+			hit.setFireTicks(bulletType.getFireTicks());
+		}
+		
+		if (hit == null) {
+			world.spawnParticle(Particle.BLOCK_DUST, loc.clone().add( 0.5, 0.0, 0.0), 5);
+			world.spawnParticle(Particle.BLOCK_DUST, loc.clone().add(-0.5, 0.0, 0.0), 5);
+			world.spawnParticle(Particle.BLOCK_DUST, loc.clone().add( 0.0, 0.5, 0.0), 5);
+			world.spawnParticle(Particle.BLOCK_DUST, loc.clone().add( 0.0,-0.5, 0.0), 5);
+			world.spawnParticle(Particle.BLOCK_DUST, loc.clone().add( 0.0, 0.0, 0.5), 5);
+			world.spawnParticle(Particle.BLOCK_DUST, loc.clone().add( 0.0, 0.0,-0.5), 5);
+		}
+	}
 
 	/**
 	 * Any post-miss cleanup can be handled here. Misses will automatically run this function, and
@@ -998,7 +1092,7 @@ public class StandardGun implements BasicGun {
 		gunData.put("clip", null);
 		gunData.put("rounds", Integer.valueOf(0));
 		
-		gun = updateGunData(gun, gunData);
+		gun = updateGunLore(updateGunData(gun, gunData));
 		
 		return new ItemStack[] {gun, ammo};
 	}
@@ -1033,7 +1127,7 @@ public class StandardGun implements BasicGun {
 						if (ammo.getAmount() <= 0) {
 							ammo = null;
 						}
-						gun = updateGunData(gun, gunData);
+						gun = updateGunLore(updateGunData(gun, gunData));
 					} else { //loaded!
 						Bullet loadedBullet = AddGun.getPlugin().getAmmo().getBullet((String) gunData.get("ammo"));
 						if (loadedBullet.equals(bullet)) { // same kind of bullet!
@@ -1045,7 +1139,7 @@ public class StandardGun implements BasicGun {
 							if (ammo.getAmount() <= 0) {
 								ammo = null;
 							}
-							gun = updateGunData(gun, gunData);
+							gun = updateGunLore(updateGunData(gun, gunData));
 						} // either can't figure out the bullet type or can't safely "swap" bullets, do a clean unload first
 					}
 				}
@@ -1064,7 +1158,7 @@ public class StandardGun implements BasicGun {
 						if (ammo.getAmount() <= 0) {
 							ammo = null;
 						}
-						gun = updateGunData(gun, gunData);
+						gun = updateGunLore(updateGunData(gun, gunData));
 					} else { //loaded!
 						if (ammo.getAmount() == 1) { // we can swap!
 							Bullet oldBullet = AddGun.getPlugin().getAmmo().getBullet((String) gunData.get("ammo"));
@@ -1078,7 +1172,7 @@ public class StandardGun implements BasicGun {
 							gunData.put("ammo", clip.getBulletType(ammo).getName());
 							gunData.put("clip", clip.getName());
 							gunData.put("rounds", clip.getRounds(ammo));
-							gun = updateGunData(gun, gunData);
+							gun = updateGunLore(updateGunData(gun, gunData));
 
 							ammo = oldClip.getClipItem(oldBullet, oldRounds);
 						} // else we do nothing, we can't clean swap.
@@ -1130,7 +1224,8 @@ public class StandardGun implements BasicGun {
 						
 						gunData.clear();
 						gunData.put("health", (Integer) gunData.get("health") - 1);
-						gun = updateGunData(gun, gunData);
+						gunData.put("lifetimeShots", (Long) gunData.get("lifetimeShots") + 1);
+						gun = updateGunLore(updateGunData(gun, gunData));
 						switch(hand) {
 						case HAND:
 							entity.getEquipment().setItemInMainHand(gun);
@@ -1161,7 +1256,8 @@ public class StandardGun implements BasicGun {
 						gunData.put("rounds", Integer.valueOf(0));
 					}
 					gunData.put("health", (Integer) gunData.get("health") - 1);
-					gun = updateGunData(gun, gunData);
+					gunData.put("lifetimeShots", (Long) gunData.get("lifetimeShots") + 1);
+					gun = updateGunLore(updateGunData(gun, gunData));
 					switch(hand) {
 					case HAND:
 						entity.getEquipment().setItemInMainHand(gun);
@@ -1251,7 +1347,8 @@ public class StandardGun implements BasicGun {
 						// deduct health from gun.
 						gunData.clear();
 						gunData.put("health", (Integer) gunData.get("health") - 1);
-						gun = updateGunData(gun, gunData);
+						gunData.put("lifetimeShots", (Long) gunData.get("lifetimeShots") + 1);
+						gun = updateGunLore(updateGunData(gun, gunData));
 						switch(hand) {
 						case HAND:
 							entity.getEquipment().setItemInMainHand(gun);
@@ -1281,7 +1378,8 @@ public class StandardGun implements BasicGun {
 						gunData.put("rounds", Integer.valueOf(0));
 					}
 					gunData.put("health", (Integer) gunData.get("health") - 1);
-					gun = updateGunData(gun, gunData);
+					gunData.put("lifetimeShots", (Long) gunData.get("lifetimeShots") + 1);
+					gun = updateGunLore(updateGunData(gun, gunData));
 					switch(hand) {
 					case HAND:
 						entity.getEquipment().setItemInMainHand(gun);
@@ -1386,7 +1484,7 @@ public class StandardGun implements BasicGun {
 
 			gunData.clear();
 			gunData.put("health", Integer.valueOf(0));
-			gun = updateGunData(gun, gunData);
+			gun = updateGunLore(updateGunData(gun, gunData));
 			switch(hand) {
 			case HAND:
 				entity.getEquipment().setItemInMainHand(gun);
@@ -1425,5 +1523,129 @@ public class StandardGun implements BasicGun {
 		entity.teleport(entity.getLocation().setDirection(direction), TeleportCause.PLUGIN);
 	}
 	
+	/**
+	 * Given a gun object, updates the lore to reflect the NBT
+	 * 
+	 * @param gun the gun to update
+	 * @return the gun, with updated lore.
+	 */
+	public ItemStack updateGunLore(ItemStack gun) {
+		ItemMeta meta = gun.getItemMeta();
+		List<String> lore = meta.getLore();
+		if (lore == null) {
+			lore = new ArrayList<String>();
+		} else {
+			lore.clear();
+		}
+		lore.add(this.tag);
+		Map<String, Object> gunData = getGunData(gun);
+		 
+		AmmoType type = (AmmoType) gunData.get("type");
+		Integer rounds = (Integer) gunData.get("rounds");
+		String bullet = null;
+		switch(type) {
+		case BULLET:
+			bullet = (String) gunData.get("bullet");
+			lore.add(ChatColor.GREEN + "Bullet " + ChatColor.GRAY + bullet + ChatColor.GREEN + " loaded");
+			if (rounds <= 0) {
+				lore.add(ChatColor.RED + "  CHAMBER EMPTY");
+			} else if (rounds == 1) {
+				lore.add(ChatColor.GOLD + "  1 " + ChatColor.BLUE + "Round");
+			} else {
+				lore.add(ChatColor.GREEN + String.format("  %d ", rounds) + ChatColor.BLUE + "Rounds");
+			}			 
+			break;
+		case CLIP:
+			String clip = (String) gunData.get("clip");
+			if (gunData.containsKey("bullet")) { // locked clip
+				bullet = (String) gunData.get("bullet");
+				lore.add(ChatColor.GREEN + "Clip " + ChatColor.WHITE + clip + ChatColor.GREEN + " of " + ChatColor.GRAY + bullet + " loaded");
+			} else {
+				lore.add(ChatColor.GREEN + "Clip " + ChatColor.WHITE + clip + ChatColor.GREEN + " loaded");
+			}
+			if (rounds <= 0) {
+				lore.add(ChatColor.RED + "  MAGAZINE EMPTY");
+			} else if (rounds == 1) {
+				lore.add(ChatColor.GOLD + "  1 " + ChatColor.BLUE + "Round");
+			} else {
+				lore.add(ChatColor.GREEN + String.format("  %d ", rounds) + ChatColor.BLUE + "Rounds");
+			}
+			break;
+		case INVENTORY:
+			lore.add(ChatColor.GREEN + "Gun auto-loads using: ");
+			for (String bull : this.allBullets) {
+				lore.add(ChatColor.GRAY + " - " + bull);
+			}
+			break;
+		}
+		 
+		int health = (Integer) gunData.get("health");
+		//int maxHealth = this.maxUses;
+		 
+		StringBuffer display = new StringBuffer();
+		 
+		if (health <= 0) { // dead
+			display.append(ChatColor.DARK_RED).append("Gun is too damaged to use");
+		} else if (health <= middleRisk) { // misfire likely
+			display.append(ChatColor.RED).append("Gun is badly damaged");
+		} else if (health <= (middleRisk * (riskSpread / 2) )) { // probably about to experience increased risk of misfire
+			display.append(ChatColor.LIGHT_PURPLE).append("Gun has signs of wear");
+		} else {
+			display.append(ChatColor.GREEN).append("Gun is in good repair");
+		}
+		
+		meta.setLore(lore);
+		gun.setItemMeta(meta);
+		return gun;
+	}
 	
+	/**
+	 * Check if this living entity has a gun of this type already in possession
+	 * @param entity the entity to check
+	 * @return true if already in inventory, false otherwise.
+	 */
+	public boolean hasGun(LivingEntity entity) {
+		if (entity == null || !enabled)
+			return false;
+
+		ItemStack[] inv;
+		if (entity instanceof InventoryHolder) {
+			// complex inventory
+			InventoryHolder holder = (InventoryHolder) entity;
+			inv = holder.getInventory().getContents();
+		} else {
+			// simple inventory
+			inv = entity.getEquipment().getArmorContents();
+		}
+
+		if (inv != null) {
+			for (ItemStack item : inv) {
+				if (isGun(item)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Given an entity and a message, sends them said message if not previously received.
+	 * 
+	 * @param entity the entity to alert
+	 * @param string the message to send.
+	 */
+	public void optionallyWarn(LivingEntity entity, String string) {
+		UUID person = entity.getUniqueId();
+		this.warned.compute(person, (u, s) -> {
+			if (s == null) {
+				s = Sets.newConcurrentHashSet();
+			}
+			if (!s.contains(string)) {
+				entity.sendMessage(string);
+				s.add(string);
+			}
+		
+			return s;
+		} );
+	}
 }
