@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -35,6 +36,41 @@ public class Clip {
 	
 	private Map<String, Integer> allowsRounds = new ConcurrentHashMap<String, Integer>();
 
+	public Clip(ConfigurationSection config) {
+		this.name = config.getName();
+		
+		this.tag = ChatColor.BLACK + "Clip: "
+				+ Integer.toHexString(this.getName().hashCode() + this.getName().length());
+		
+		this.example = config.getItemStack("example");
+		if (this.example == null) {
+			throw new IllegalArgumentException("No inventory representation (section example) provided for this bullet, it cannot be instanced");
+		}
+		
+		if (config.contains("bullets")) {
+			ConfigurationSection bullets = config.getConfigurationSection("bullets");
+			for (String bulletName : bullets.getKeys(false)) {
+				if (AddGun.getPlugin().getAmmo().getBullet(bulletName) == null) {
+					AddGun.getPlugin().warning("Could not find bullet " + bulletName + " for clip " + this.name);
+				} else {
+					this.allowedBullets.add(bulletName);
+					this.allowsRounds.put(bulletName, bullets.getInt(bulletName, 1));
+				}
+			}
+		}
+		
+		if (allowedBullets.isEmpty()) {
+			throw new IllegalArgumentException("No bullets defined for this clip? We cannot proceed");
+		}
+		
+		Map<String, Object> clipData = new HashMap<String, Object>();
+		
+		clipData.put("rounds", Integer.valueOf(0));
+		
+		this.example = updateClipData(this.example, clipData);
+
+	}
+	
 	/**
 	 * Gets how many of each bullet is permitted for this clip.
 	 * 

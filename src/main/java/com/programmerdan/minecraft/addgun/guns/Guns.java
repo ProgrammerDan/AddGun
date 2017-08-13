@@ -4,6 +4,8 @@ import static com.programmerdan.minecraft.addgun.guns.Utilities.detailedHitBoxLo
 import static com.programmerdan.minecraft.addgun.guns.Utilities.getGunData;
 import static com.programmerdan.minecraft.addgun.guns.Utilities.sigmoid;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -676,5 +678,45 @@ public class Guns implements Listener {
 	 */
 	public boolean hasGuns() {
 		return !this.gunMap.isEmpty();
+	}
+
+	
+	private transient Set<String> gunNameList = null;
+	/**
+	 * Gets all guns by their name. Caches the answer.
+	 * 
+	 * @return the list of gun names
+	 */
+	public Set<String> getGunNames() {
+		if (gunNameList != null) return gunNameList;
+		Set<String> ret = new HashSet<String>();
+		if (hasGuns() ) {
+			for (Material mat : gunMap.keySet()) {
+				for (StandardGun gun : gunMap.get(mat)) {
+					ret.add(gun.getName());
+				}
+			}
+		}
+		gunNameList = ret;
+		return ret;
+	}
+	
+	/**
+	 * Command accessor to get a StandardGun by name
+	 * 
+	 * @param name the name to lookup
+	 * @return a StandardGun or null.
+	 */
+	public StandardGun getGun(String name) {
+		if (hasGuns() ) {
+			for (Material mat : gunMap.keySet()) {
+				for (StandardGun gun : gunMap.get(mat)) {
+					if (gun.getName().equals(name)) {
+						return gun;
+					}
+				}
+			}
+		}
+		return null;
 	}
 }

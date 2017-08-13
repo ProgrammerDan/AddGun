@@ -262,15 +262,37 @@ public class StandardGun implements BasicGun {
 			this.maxAmmo = config.getInt("ammo.max", 0);
 			
 			if (config.contains("ammo.bullets")) {
-				this.allBullets = config.getStringList("ammo.bullets");
+				this.allBullets = new ArrayList<String>();
 				if (this.maxAmmo <= 0) {
 					this.ammoSource = AmmoType.INVENTORY;
 				} else {
 					this.ammoSource = AmmoType.BULLET;
 				}
+				for (String bullet : config.getStringList("ammo.bullets")) {
+					if (AddGun.getPlugin().getAmmo().getBullet(bullet) != null) {
+						this.allBullets.add(bullet);
+					} else {
+						AddGun.getPlugin().warning("Could not find bullet " + bullet + " for gun " + this.name);
+					}
+				}
+				if (this.allBullets.isEmpty()) {
+					throw new IllegalArgumentException("Gun is defined to use bullets, but no valid bullets defined!");
+				}
 			} else if (config.contains("ammo.clips")) {
-				this.allClips = config.getStringList("ammo.clips");
+				this.allClips = new ArrayList<String>();
 				this.ammoSource = AmmoType.CLIP;
+				for (String clip: config.getStringList("ammo.clips")) {
+					if (AddGun.getPlugin().getAmmo().getClip(clip) != null) {
+						this.allClips.add(clip);
+					} else {
+						AddGun.getPlugin().warning("Could not find clip " + clip + " for gun " + this.name);
+					}
+				}
+				if (this.allClips.isEmpty()) {
+					throw new IllegalArgumentException("Gun is defined to use clips, but no valid clip defined!");
+				}
+			} else {
+				AddGun.getPlugin().warning("Intentional or otherwise, gun " + this.name + " is either an energy weapon or free to use.");
 			}
 			
 			this.maxUses = config.getInt("health.max", maxUses);
@@ -1647,5 +1669,30 @@ public class StandardGun implements BasicGun {
 		
 			return s;
 		} );
+	}
+
+	/**
+	 * Returns a clone of the basic gun.
+	 * 
+	 * @return the basic gun.
+	 */
+	@Override
+	public ItemStack getMinimalGun() {
+		return this.gunExample.clone();
+	}
+
+	/**
+	 * Simple repair method, just sets health back to maximum.
+	 * 
+	 * @return the gun, repaired.
+	 */
+	@Override
+	public ItemStack repairGun(ItemStack toRepair) {
+		if (isGun(toRepair)) {
+			Map<String, Object> gunUpdate = new HashMap<String, Object>();
+			gunUpdate.put("health", Integer.valueOf(this.maxUses));
+			return updateGunLore(updateGunData(toRepair, gunUpdate));
+		}
+		return toRepair;
 	}
 }

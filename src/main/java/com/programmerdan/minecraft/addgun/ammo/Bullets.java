@@ -5,21 +5,28 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Material;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.Event.Result;
+import org.bukkit.event.inventory.InventoryAction;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 
 import com.google.common.collect.Sets;
+import com.programmerdan.minecraft.addgun.AddGun;
 import com.programmerdan.minecraft.addgun.guns.StandardGun;
 
 /**
  * Intent here is this class holds configurations of bullets and provides easy accessors.
  * Each gun will have a list of bullets that it can use.
  * 
- * Bullets are constructed from config.
+ * Bullets and clips are constructed from config.
  * 
  * @author ProgrammerDan
  *
  */
-public class Bullets {
+public class Bullets implements Listener {
 
 	private Map<String, Bullet> tagMap = new ConcurrentHashMap<>();
 	
@@ -147,5 +154,71 @@ public class Bullets {
 	 */
 	public Clip getClipByTag(String tag) {
 		return clipTagMap.get(tag);
+	}
+	
+	/**
+	 * Returns a representation of all the clips configured by names
+	 * 
+	 * @return a set of clip names
+	 */
+	public Set<String> allClipNames() {
+		return clipMap.keySet();
+	}
+	
+	/**
+	 * Returns a representation of all the bullets configured by names
+	 * 
+	 * @return a set of bullet names
+	 */
+	public Set<String> allBulletNames() {
+		return nameMap.keySet();
+	}
+	
+	/**
+	 * This handles load / unload events.
+	 * 
+	 * @param event The inventory click event
+	 * 
+	 */
+	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+	public void interactClipEvent(InventoryClickEvent event) {
+		if (!InventoryAction.SWAP_WITH_CURSOR.equals(event.getAction()) | !event.isRightClick()) {
+			return;
+		}
+		
+		//HumanEntity human = event.getWhoClicked();
+
+		ItemStack current = event.getCurrentItem();
+		ItemStack cursor = event.getCursor();
+		
+		Clip currentClip = findClip(current);
+		if (currentClip == null) return;
+		
+		Bullet cursorBullet = null;
+		
+		if (cursor != null) {
+			cursorBullet = findBullet(cursor);
+			if (cursorBullet != null) {
+				// load / swap event.
+				ItemStack[] outcome = currentClip.loadClip(current, cursorBullet, cursor.getAmount());
+				event.setCurrentItem(outcome[0]);
+				event.setCursor(outcome[1]); // why tf is this deprecated?!
+				event.setResult(Result.DENY);
+			}
+		} else {
+			// unload event.
+			ItemStack[] outcome = currentClip.unloadClip(current);
+			event.setCurrentItem(outcome[0]);
+			event.setCursor(outcome[1]); // why tf is this deprecated?!
+			event.setResult(Result.DENY);
+		}
+	}
+	
+	/**
+	 * Quick check if there are any clips registered
+	 * @return true if yes, otherwise false
+	 */
+	public boolean hasClips() {
+		return !this.clipMap.isEmpty();
 	}
 }

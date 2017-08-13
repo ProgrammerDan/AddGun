@@ -8,7 +8,9 @@ commands:
   usage: |
    The following are commands available for use:
    /givegun <player> <gun>
-   /givebullet <player> <gun>
+   /givebullet <player> <bullet> [<amount>]
+   /giveclip <player> <clip>
+   /repairgun <player>
   alias: agun
   permission: addgun.*
  givegun:
@@ -20,9 +22,21 @@ commands:
  givebullet:
   description: Gives player a bullet for a weapon.
   usage: |
-   /givebullet <player> <gun> <amount>
+   /givebullet <player> <bullet> <amount>
   alias: ag.gb
   permission: addgun.give
+ giveclip:
+  description: Gives player a clip for a weapon
+  usage: | 
+   /giveclip <player> <clip>
+  alias: ag.gc
+  permission: addgun.give
+ repairgun:
+  description: Repairs a player's held gun
+  usage: |
+   /repairgun <player>
+  alias: ag.rg
+  permission: addgun.repair
 permissions:
  addgun.*:
   description: Gives access to all Addgun commands
@@ -31,6 +45,9 @@ permissions:
    addgun.give: true
   addgun.give:
    description: Allows gifting players specific weapons
+   default: op
+  addgun.repair:
+   description: Allows repairing a gun
    default: op
   addgun.data:
    description: Allows insight into special data as weapons are used

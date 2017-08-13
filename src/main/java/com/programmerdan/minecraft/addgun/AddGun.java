@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -18,7 +19,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.google.common.reflect.ClassPath;
+import com.programmerdan.minecraft.addgun.ammo.Bullet;
 import com.programmerdan.minecraft.addgun.ammo.Bullets;
+import com.programmerdan.minecraft.addgun.ammo.Clip;
 import com.programmerdan.minecraft.addgun.commands.CommandHandler;
 import com.programmerdan.minecraft.addgun.guns.BasicGun;
 import com.programmerdan.minecraft.addgun.guns.Guns;
@@ -78,6 +81,22 @@ public class AddGun  extends JavaPlugin {
 		return guns;
 	}
 	
+	public Set<String> getGunNames() {
+		Set<String> tGuns = new HashSet<String>();
+		tGuns.addAll(guns.getGunNames());
+		tGuns.addAll(this.customGuns.keySet());
+		
+		return tGuns;
+	}
+	
+	public BasicGun getGun(String name) {
+		BasicGun gun = guns.getGun(name);
+		if (gun == null) {
+			return this.customGuns.get(name);
+		}
+		return gun;
+	}
+	
 	public Bullets getAmmo() {
 		return ammo;
 	}
@@ -113,7 +132,45 @@ public class AddGun  extends JavaPlugin {
 
 	}
 	
-	private void addBullets(FileConfiguration config) {}
+	private void addBullets(FileConfiguration config) {
+		
+		ConfigurationSection bullets = config.getConfigurationSection("bullets");
+		if (bullets == null || bullets.getKeys(false) == null) {
+			this.warning("No bullets enabled!");
+			return;
+		}
+		
+		this.ammo = new Bullets();
+		
+		for (String bulletName : bullets.getKeys(false)) {
+			try {
+				Bullet bullet = new Bullet(bullets.getConfigurationSection(bulletName));
+				
+				this.ammo.registerBullet(bullet);
+			} catch (Exception e) {
+				warning("Failed to register bullet {0} due to error {1}", bulletName, e);
+			}
+		}
+		
+		ConfigurationSection clips = config.getConfigurationSection("clips");
+		if (clips == null || clips.getKeys(false) == null) {
+			this.warning("No clips enabled.");
+		}
+
+		for (String clipName : clips.getKeys(false)) {
+			try {
+				Clip clip = new Clip(clips.getConfigurationSection(clipName));
+				
+				this.ammo.registerClip(clip);
+			} catch (Exception e) {
+				warning("Failed to register clip {0} due to error {1}", clipName, e);
+			}
+		}
+
+		if (this.ammo.hasClips()) {
+			this.getServer().getPluginManager().registerEvents(this.ammo, this);
+		}
+	}
 	
 	private void addGuns(FileConfiguration config) {
 		
@@ -138,7 +195,7 @@ public class AddGun  extends JavaPlugin {
 						Constructor<?> constructBasic = clazz.getConstructor();
 						basicGun = (BasicGun) constructBasic.newInstance();
 						possibleGuns.put(basicGun.getName(), basicGun);
-						info("Created a new Gun Manager for guns of type {0}", clazz.getName());
+						info("Created a new Gun Manager for custom gun of type {0}", clazz.getName());
 					} catch (Exception e) {}
 				}
 			}

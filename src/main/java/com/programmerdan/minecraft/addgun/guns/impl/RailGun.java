@@ -179,7 +179,6 @@ public class RailGun implements BasicGun, Listener {
 		return gunExample;
 	}
 
-	@Override
 	public ItemStack getMinimalBullet() {
 		return bulletExample;
 	}
@@ -203,7 +202,6 @@ public class RailGun implements BasicGun, Listener {
 		return false;
 	}
 
-	@Override
 	public boolean hasBullet(LivingEntity entity) {
 		if (entity == null || !enabled)
 			return false;
@@ -966,5 +964,18 @@ public class RailGun implements BasicGun, Listener {
 				warned.add(event.getEntity().getUniqueId());
 			}
 		}
+	}
+
+	/**
+	 * Very basic repair of railgun, just resets durability.
+	 * 
+	 * @return the Railgun, or item if not a railgun.
+	 */
+	@Override
+	public ItemStack repairGun(ItemStack toRepair) {
+		if (isGun(toRepair)) {
+			toRepair.setDurability(this.gunExample.getDurability());
+		}
+		return toRepair;
 	}
 }

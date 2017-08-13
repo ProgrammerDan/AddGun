@@ -13,10 +13,7 @@ public interface BasicGun {
 	
 	public ItemStack getMinimalGun();
 	
-	public ItemStack getMinimalBullet();
-	
-	
 	public boolean isGun(ItemStack toCheck);
 	
-	public boolean hasBullet(LivingEntity entity);
+	public ItemStack repairGun(ItemStack toRepair);
 }
