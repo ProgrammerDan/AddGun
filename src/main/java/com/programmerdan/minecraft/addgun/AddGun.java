@@ -84,8 +84,9 @@ public class AddGun  extends JavaPlugin {
 	public Set<String> getGunNames() {
 		Set<String> tGuns = new HashSet<String>();
 		tGuns.addAll(guns.getGunNames());
-		tGuns.addAll(this.customGuns.keySet());
-		
+		if (!this.customGuns.isEmpty()) {
+			tGuns.addAll(this.customGuns.keySet());
+		}
 		return tGuns;
 	}
 	
@@ -179,6 +180,9 @@ public class AddGun  extends JavaPlugin {
 			this.warning("No guns enabled!");
 			return;
 		}
+		
+		this.guns = new Guns();
+		this.customGuns = new ConcurrentHashMap<>();
 		
 		// load all possible guns
 		Map<String, BasicGun> possibleGuns = new HashMap<String, BasicGun>();

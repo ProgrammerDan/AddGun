@@ -98,7 +98,7 @@ public class Clip {
 
 		ItemMeta meta = toCheck.getItemMeta();
 
-		if (meta.getLore().contains(tag))
+		if (meta.hasLore() && meta.getLore().contains(tag))
 			return true;
 
 		return false;
@@ -159,8 +159,8 @@ public class Clip {
 		Map<String, Object> clipData = getClipData(clip);
 		if (clipData.containsKey("ammo")) { // locked to an ammo
 			if (bullet.getName().equals((String) clipData.get("ammo"))) { // same!
-				int toLoad = Math.min(this.allowsRounds.get(bullet.getName()), i + ((Integer) clipData.get("rounds"))); // max vs. current + new
-				clipData.put("rounds", Integer.valueOf(toLoad));
+				int toLoad = Math.min(this.allowsRounds.get(bullet.getName()) - ((Integer) clipData.get("rounds")), i); // max vs. current + new
+				clipData.put("rounds", ((Integer) clipData.get("rounds")) + Integer.valueOf(toLoad));
 				i = i - toLoad;
 				clip = updateClipLore(updateClipData(clip, clipData));
 			} else { // different!

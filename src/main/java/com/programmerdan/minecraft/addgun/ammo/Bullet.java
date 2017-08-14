@@ -580,8 +580,8 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 	 */
 	public void configureBullet(Projectile bullet, World world, ProjectileSource shooter, Vector velocity) {
 		
+		bullet.setVelocity(velocity);
 		bullet.setFireTicks(this.fireTicks);
-		
 	}
 	
 	/* Standard Overrides */
@@ -623,7 +623,7 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 
 		ItemMeta meta = toCheck.getItemMeta();
 
-		if (meta.getLore().contains(tag))
+		if (meta.hasLore() && meta.getLore().contains(tag))
 			return true;
 
 		return false;

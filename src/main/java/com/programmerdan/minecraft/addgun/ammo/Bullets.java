@@ -89,6 +89,7 @@ public class Bullets implements Listener {
 	 * @return a Bullet or null.
 	 */
 	public Bullet findBullet(ItemStack bullet) {
+		if (bullet == null) return null;
 		Set<Bullet> set = map.get(bullet.getType());
 		if (set == null) return null;
 		// TODO: Can we do better?
@@ -126,6 +127,7 @@ public class Bullets implements Listener {
 	 * @return a Clip or null.
 	 */
 	public Clip findClip(ItemStack clip) {
+		if (clip == null) return null;
 		Set<Clip> set = clips.get(clip.getType());
 		if (set == null) return null;
 		// TODO: Can we do better?
@@ -182,7 +184,11 @@ public class Bullets implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
 	public void interactClipEvent(InventoryClickEvent event) {
-		if (!InventoryAction.SWAP_WITH_CURSOR.equals(event.getAction()) | !event.isRightClick()) {
+		if (!(InventoryAction.SWAP_WITH_CURSOR.equals(event.getAction()) || 
+				InventoryAction.PICKUP_ALL.equals(event.getAction()) || 
+				InventoryAction.PICKUP_HALF.equals(event.getAction()) || 
+				InventoryAction.PICKUP_SOME.equals(event.getAction()) || 
+				InventoryAction.PICKUP_ONE.equals(event.getAction())) | !event.isRightClick()) {
 			return;
 		}
 		
@@ -196,7 +202,7 @@ public class Bullets implements Listener {
 		
 		Bullet cursorBullet = null;
 		
-		if (cursor != null) {
+		if (cursor != null && !Material.AIR.equals(cursor.getType())) {
 			cursorBullet = findBullet(cursor);
 			if (cursorBullet != null) {
 				// load / swap event.

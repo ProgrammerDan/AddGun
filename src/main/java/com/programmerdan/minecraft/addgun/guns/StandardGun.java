@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -334,7 +335,7 @@ public class StandardGun implements BasicGun {
 						
 			gunData.put("health", this.maxUses);
 			
-			this.gunExample = updateGunData(this.gunExample, gunData);
+			this.gunExample = updateGunLore(updateGunData(this.gunExample, gunData));
 		}
 	}
 
@@ -830,9 +831,14 @@ public class StandardGun implements BasicGun {
 			}
 		}
 		
+		final double trueFinalDamage = finalDamage;
 		//TODO: player states? custom shit? event?
-		
-		hit.damage(finalDamage, bullet);
+		Bukkit.getScheduler().runTask(AddGun.getPlugin(), new Runnable() {
+			@Override
+			public void run() {
+				hit.damage(trueFinalDamage, bullet);
+			}
+		});
 	}
 	
 
@@ -911,7 +917,7 @@ public class StandardGun implements BasicGun {
 		newBullet.setCustomName(this.bulletTag);
 		newBullet.setBounce(false);
 		newBullet.setGravity(true);
-		newBullet.setShooter(newBullet.getShooter());
+		newBullet.setShooter(shooter);
 		
 		bulletType.configureBullet(newBullet, world, shooter, velocity);
 		
@@ -964,7 +970,7 @@ public class StandardGun implements BasicGun {
 
 		ItemMeta meta = toCheck.getItemMeta();
 
-		if (meta.getLore().contains(tag))
+		if (meta.hasLore() && meta.getLore().contains(tag))
 			return true;
 
 		return false;
@@ -1173,7 +1179,8 @@ public class StandardGun implements BasicGun {
 				if (this.allClips.contains(clip.getName())) {
 					if (!gunData.containsKey("clip")) { // unloaded! easy path
 						gunData.clear();
-						gunData.put("ammo", clip.getBulletType(ammo).getName());
+						Bullet bullt = clip.getBulletType(ammo);
+						gunData.put("ammo", bullt == null ? null : bullt.getName());
 						gunData.put("clip", clip.getName());
 						gunData.put("rounds", clip.getRounds(ammo));
 						ammo.setAmount(ammo.getAmount() - 1);
@@ -1243,10 +1250,11 @@ public class StandardGun implements BasicGun {
 							holder.getInventory().clear(bullet.getKey());
 						}
 						foundBullet = true;
-						
+						int health = (Integer) gunData.get("health");
+						long shots = (Long) gunData.get("lifetimeShots");						
 						gunData.clear();
-						gunData.put("health", (Integer) gunData.get("health") - 1);
-						gunData.put("lifetimeShots", (Long) gunData.get("lifetimeShots") + 1);
+						gunData.put("health", health - 1);
+						gunData.put("lifetimeShots", shots + 1);
 						gun = updateGunLore(updateGunData(gun, gunData));
 						switch(hand) {
 						case HAND:
@@ -1268,6 +1276,8 @@ public class StandardGun implements BasicGun {
 				if (rounds != null && rounds instanceof Integer && ((Integer) rounds) > 0) {
 					foundBullet = true;
 					int newRounds = ((Integer) rounds) - 1;
+					int health = (Integer) gunData.get("health");
+					long shots = (Long) gunData.get("lifetimeShots");
 					gunData.clear();
 					if (newRounds > 0) {
 						gunData.put("rounds", ((Integer) rounds) - 1);
@@ -1277,8 +1287,8 @@ public class StandardGun implements BasicGun {
 						} // if it's a clip we just zero out rounds but leave the clip "loaded".
 						gunData.put("rounds", Integer.valueOf(0));
 					}
-					gunData.put("health", (Integer) gunData.get("health") - 1);
-					gunData.put("lifetimeShots", (Long) gunData.get("lifetimeShots") + 1);
+					gunData.put("health", health - 1);
+					gunData.put("lifetimeShots", shots + 1);
 					gun = updateGunLore(updateGunData(gun, gunData));
 					switch(hand) {
 					case HAND:
@@ -1366,10 +1376,12 @@ public class StandardGun implements BasicGun {
 							}
 						}
 						
+						int health = (Integer) gunData.get("health");
+						long shots = (Long) gunData.get("lifetimeShots");
 						// deduct health from gun.
 						gunData.clear();
-						gunData.put("health", (Integer) gunData.get("health") - 1);
-						gunData.put("lifetimeShots", (Long) gunData.get("lifetimeShots") + 1);
+						gunData.put("health", health - 1);
+						gunData.put("lifetimeShots", shots + 1);
 						gun = updateGunLore(updateGunData(gun, gunData));
 						switch(hand) {
 						case HAND:
@@ -1390,6 +1402,8 @@ public class StandardGun implements BasicGun {
 				Object rounds = gunData.get("rounds");
 				if (rounds != null && rounds instanceof Integer && ((Integer) rounds) > 0) {
 					int newRounds = ((Integer) rounds) - 1;
+					int health = (Integer) gunData.get("health");
+					long shots = (Long) gunData.get("lifetimeShots");
 					gunData.clear();
 					if (newRounds > 0) {
 						gunData.put("rounds", ((Integer) rounds) - 1);
@@ -1399,8 +1413,8 @@ public class StandardGun implements BasicGun {
 						} // if it's a clip we just zero out rounds but leave the clip "loaded".
 						gunData.put("rounds", Integer.valueOf(0));
 					}
-					gunData.put("health", (Integer) gunData.get("health") - 1);
-					gunData.put("lifetimeShots", (Long) gunData.get("lifetimeShots") + 1);
+					gunData.put("health", health - 1);
+					gunData.put("lifetimeShots", shots + 1);
 					gun = updateGunLore(updateGunData(gun, gunData));
 					switch(hand) {
 					case HAND:
@@ -1567,36 +1581,51 @@ public class StandardGun implements BasicGun {
 		String bullet = null;
 		switch(type) {
 		case BULLET:
-			bullet = (String) gunData.get("bullet");
-			lore.add(ChatColor.GREEN + "Bullet " + ChatColor.GRAY + bullet + ChatColor.GREEN + " loaded");
-			if (rounds <= 0) {
-				lore.add(ChatColor.RED + "  CHAMBER EMPTY");
-			} else if (rounds == 1) {
-				lore.add(ChatColor.GOLD + "  1 " + ChatColor.BLUE + "Round");
+			if (gunData.containsKey("ammo")) {
+				bullet = (String) gunData.get("ammo");
+				lore.add(ChatColor.GREEN + "Bullet " + ChatColor.GRAY + bullet + ChatColor.GREEN + " loaded");
+	
+				if (rounds <= 0) {
+					lore.add(ChatColor.RED + "  CHAMBER EMPTY");
+				} else if (rounds == 1) {
+					lore.add(ChatColor.GOLD + "  1 " + ChatColor.BLUE + "Round");
+				} else {
+					lore.add(ChatColor.GREEN + String.format("  %d ", rounds) + ChatColor.BLUE + "Rounds");
+				}
 			} else {
-				lore.add(ChatColor.GREEN + String.format("  %d ", rounds) + ChatColor.BLUE + "Rounds");
-			}			 
+				lore.add(ChatColor.GREEN + "Gun accepts bullets: ");
+				for (String bull : this.allBullets) {
+					lore.add(ChatColor.GREEN + " - " + ChatColor.GRAY + bull);
+				}
+			}
 			break;
 		case CLIP:
-			String clip = (String) gunData.get("clip");
-			if (gunData.containsKey("bullet")) { // locked clip
-				bullet = (String) gunData.get("bullet");
-				lore.add(ChatColor.GREEN + "Clip " + ChatColor.WHITE + clip + ChatColor.GREEN + " of " + ChatColor.GRAY + bullet + " loaded");
+			if (gunData.containsKey("clip")) {
+				String clip = (String) gunData.get("clip");
+				if (gunData.containsKey("ammo")) { // locked clip
+					bullet = (String) gunData.get("ammo");
+					lore.add(ChatColor.GREEN + "Clip " + ChatColor.WHITE + clip + ChatColor.GREEN + " of " + ChatColor.GRAY + bullet + ChatColor.GREEN + " loaded");
+				} else {
+					lore.add(ChatColor.GREEN + "Clip " + ChatColor.WHITE + clip + ChatColor.GREEN + " loaded");
+				}
+				if (rounds <= 0) {
+					lore.add(ChatColor.RED + "  MAGAZINE EMPTY");
+				} else if (rounds == 1) {
+					lore.add(ChatColor.GOLD + "  1 " + ChatColor.BLUE + "Round");
+				} else {
+					lore.add(ChatColor.GREEN + String.format("  %d ", rounds) + ChatColor.BLUE + "Rounds");
+				}
 			} else {
-				lore.add(ChatColor.GREEN + "Clip " + ChatColor.WHITE + clip + ChatColor.GREEN + " loaded");
-			}
-			if (rounds <= 0) {
-				lore.add(ChatColor.RED + "  MAGAZINE EMPTY");
-			} else if (rounds == 1) {
-				lore.add(ChatColor.GOLD + "  1 " + ChatColor.BLUE + "Round");
-			} else {
-				lore.add(ChatColor.GREEN + String.format("  %d ", rounds) + ChatColor.BLUE + "Rounds");
+				lore.add(ChatColor.GREEN + "Gun accepts clips: ");
+				for (String clip : this.allClips) {
+					lore.add(ChatColor.GREEN + " - " + ChatColor.WHITE + clip);
+				}
 			}
 			break;
 		case INVENTORY:
 			lore.add(ChatColor.GREEN + "Gun auto-loads using: ");
 			for (String bull : this.allBullets) {
-				lore.add(ChatColor.GRAY + " - " + bull);
+				lore.add(ChatColor.GREEN + " - " + ChatColor.GRAY + bull);
 			}
 			break;
 		}

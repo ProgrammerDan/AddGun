@@ -1,6 +1,7 @@
 package com.programmerdan.minecraft.addgun.commands;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -58,13 +59,14 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 					sender.sendMessage("Could not find player " + args[0]);
 					return true;
 				}
-				BasicGun gun = plugin.getGun(args[1]);
+				String gunLabel = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+				BasicGun gun = plugin.getGun(gunLabel);
 				if (gun == null) {
-					sender.sendMessage("Could not find gun " + args[1] + ". Try using tab-complete to search for valid guns.");
+					sender.sendMessage("Could not find gun " + gunLabel + ". Try using tab-complete to search for valid guns.");
 					return true;
 				}
 				target.getInventory().addItem(gun.getMinimalGun());
-				sender.sendMessage("Gave gun " + args[1] + " to " + args[0]);
+				sender.sendMessage("Gave gun " + gunLabel + " to " + args[0]);
 				return true;
 			}
 		} else if (cmd.equals(giveBullet)) {
@@ -76,29 +78,34 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 					sender.sendMessage("Could not find player " + args[0]);
 					return true;
 				}
-				Bullet bullet = plugin.getAmmo().getBullet(args[1]);
-				if (bullet == null) {
-					sender.sendMessage("Could not find bullet " + args[1] + ". Try using tab-complete to search for valid bullets.");
-					return true;
-				}
-				ItemStack bulletItem = bullet.getBulletItem();
+				String bulletLabel1 = String.join(" ", Arrays.copyOfRange(args, 1, args.length)); // no amount
 				int amt = 1;
-				if (args.length > 2) { // <amount>
+				Bullet bullet = plugin.getAmmo().getBullet(bulletLabel1);
+				if (bullet == null) {
+					String bulletLabel2 = String.join(" ", Arrays.copyOfRange(args, 1, args.length - 1)); // with amount 
+					
+					bullet = plugin.getAmmo().getBullet(bulletLabel2);
+
+					if (bullet == null) {
+						sender.sendMessage("Could not find bullet " + bulletLabel1 + " or " + bulletLabel2 + ". Try using tab-complete to search for valid bullets.");
+						return true;
+					}
 					try {
-						amt = Integer.parseInt(args[2]);
-						if (amt > bulletItem.getMaxStackSize()) {
-							amt = bulletItem.getMaxStackSize();
-						} else if (amt < 1) {
-							amt = 1;
-						}
+						amt = Integer.parseInt(args[args.length - 1]);
 					} catch (NumberFormatException nfe) {
 						sender.sendMessage("Invalid amount, defaulting to 1");
 						amt = 1;
 					}
 				}
+				ItemStack bulletItem = bullet.getBulletItem();
+				if (amt > bulletItem.getMaxStackSize()) {
+					amt = bulletItem.getMaxStackSize();
+				} else if (amt < 1) {
+					amt = 1;
+				}
 				bulletItem.setAmount(amt);
 				target.getInventory().addItem(bulletItem);
-				sender.sendMessage("Gave " + amt + " " + args[1] + (amt > 1 ? "s" : "") + " to " + args[0]);
+				sender.sendMessage("Gave " + amt + " " + bullet.getName() + (amt > 1 ? "s" : "") + " to " + args[0]);
 				return true;
 			}
 		} else if (cmd.equals(giveClip)) {
@@ -110,14 +117,15 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 					sender.sendMessage("Could not find player " + args[0]);
 					return true;
 				}
-				Clip clip = plugin.getAmmo().getClip(args[1]);
+				String clipLabel = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+				Clip clip = plugin.getAmmo().getClip(clipLabel);
 				if (clip == null) {
-					sender.sendMessage("Could not find clip " + args[1] + ". Try using tab-complete to search for valid clips.");
+					sender.sendMessage("Could not find clip " + clipLabel + ". Try using tab-complete to search for valid clips.");
 					return true;
 				}
 				ItemStack clipItem = clip.getClipItem(null, 0);
 				target.getInventory().addItem(clipItem);
-				sender.sendMessage("Gave a fresh " + args[1] + " to " + args[0]);
+				sender.sendMessage("Gave a fresh " + clipLabel + " to " + args[0]);
 				return true;
 			}
 		} else if (cmd.equals(repairGun)) {
@@ -167,14 +175,15 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 		}
 
 		if (cmd.equals(giveGun)) {
-			if (args.length == 2) {
+			if (args.length >= 2) {
 				if (args[1] == null || args[1].equals("")) {
 					return new ArrayList<String>(plugin.getGunNames());
 				}
+				String gunLabel = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
 				Set<String> guns = plugin.getGunNames();
 				List<String> maybeGuns = new ArrayList<String>();
 				for (String gun : guns) {
-					if (gun.contains(args[1])) {
+					if (gun.contains(gunLabel)) {
 						maybeGuns.add(gun);
 					}
 				}
@@ -183,14 +192,15 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 				return null;
 			}
 		} else if (cmd.equals(giveBullet)) {
-			if (args.length == 2) {
+			if (args.length >= 2) {
 				if (args[1] == null || args[1].equals("")) {
 					return new ArrayList<String>(plugin.getAmmo().allBulletNames());
 				}
+				String bulletLabel = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
 				Set<String> bullets = plugin.getAmmo().allBulletNames();
 				List<String> maybeBullets = new ArrayList<String>();
 				for (String bullet : bullets) {
-					if (bullet.contains(args[1])) {
+					if (bullet.contains(bulletLabel)) {
 						maybeBullets.add(bullet);
 					}
 				}
@@ -199,14 +209,16 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 				return null;
 			}
 		} else if (cmd.equals(giveClip)) {
-			if (args.length == 2) {
+			if (args.length >= 2) {
 				if (args[1] == null || args[1].equals("")) {
 					return new ArrayList<String>(plugin.getAmmo().allClipNames());
 				}
+				
+				String clipLabel = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
 				Set<String> clips = plugin.getAmmo().allClipNames();
 				List<String> maybeClips = new ArrayList<String>();
 				for (String clip : clips) {
-					if (clip.contains(args[1])) {
+					if (clip.contains(clipLabel)) {
 						maybeClips.add(clip);
 					}
 				}

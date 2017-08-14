@@ -429,7 +429,11 @@ public class Guns implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
 	public void interactWeaponEvent(InventoryClickEvent event) {
-		if (!InventoryAction.SWAP_WITH_CURSOR.equals(event.getAction()) | !event.isRightClick()) {
+		if (!(InventoryAction.SWAP_WITH_CURSOR.equals(event.getAction()) || 
+				InventoryAction.PICKUP_ALL.equals(event.getAction()) || 
+				InventoryAction.PICKUP_HALF.equals(event.getAction()) || 
+				InventoryAction.PICKUP_SOME.equals(event.getAction()) || 
+				InventoryAction.PICKUP_ONE.equals(event.getAction())) || !event.isRightClick()) {
 			return;
 		}
 		
@@ -444,7 +448,7 @@ public class Guns implements Listener {
 		Bullet cursorBullet = null;
 		Clip cursorClip = null;
 		
-		if (cursor != null) {
+		if (cursor != null && !Material.AIR.equals(cursor.getType())) {
 			cursorClip = AddGun.getPlugin().getAmmo().findClip(cursor);
 			cursorBullet = AddGun.getPlugin().getAmmo().findBullet(cursor);
 			if (cursorClip != null || cursorBullet != null) {
@@ -541,7 +545,7 @@ public class Guns implements Listener {
 			default:
 				break;
 			}
-			if (equpGun.isCooldownOnEquip() && isEquip) {
+			if (equpGun != null && equpGun.isCooldownOnEquip() && isEquip) {
 				final StandardGun equipGun = equpGun;
 				Bukkit.getScheduler().runTask(AddGun.getPlugin(), new Runnable() {
 					@Override
@@ -602,6 +606,8 @@ public class Guns implements Listener {
 	 * @return a StandardGun or null.
 	 */
 	public StandardGun findGun(ItemStack gun) {
+		if (gun == null) return null;
+		
 		Set<StandardGun> set = gunMap.get(gun.getType());
 		if (set == null) return null;
 		// TODO: Can we do better?
