@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.ChatColor;
@@ -18,6 +19,7 @@ import com.programmerdan.minecraft.addgun.AddGun;
 
 import static com.programmerdan.minecraft.addgun.guns.Utilities.getClipData;
 import static com.programmerdan.minecraft.addgun.guns.Utilities.updateClipData;
+import static com.programmerdan.minecraft.addgun.guns.Utilities.updateGunData;
 
 /**
  * Wrapper class for "clips" which are bullet holders. Not all guns need support clips. Some only support clips.
@@ -32,6 +34,8 @@ public class Clip {
 	
 	private ItemStack example;
 	
+	private List<String> exampleLore;
+	
 	private Set<String> allowedBullets = Sets.newConcurrentHashSet();
 	
 	private Map<String, Integer> allowsRounds = new ConcurrentHashMap<String, Integer>();
@@ -45,6 +49,15 @@ public class Clip {
 		this.example = config.getItemStack("example");
 		if (this.example == null) {
 			throw new IllegalArgumentException("No inventory representation (section example) provided for this bullet, it cannot be instanced");
+		} else {
+			if (this.example.hasItemMeta()) {
+				if (this.example.getItemMeta().hasLore()) {
+					this.exampleLore = this.example.getItemMeta().getLore();
+				}
+				ItemMeta meta = this.example.getItemMeta();
+				meta.setUnbreakable(true);
+				this.example.setItemMeta(meta);
+			}
 		}
 		
 		if (config.contains("bullets")) {
@@ -133,6 +146,7 @@ public class Clip {
 			clipData.put("ammo", null);
 			clipData.put("rounds", Integer.valueOf(0));
 		}
+		clipData.put("unid", UUID.randomUUID().toString());
 		
 		clip = updateClipLore(updateClipData(clip, clipData));
 
@@ -260,6 +274,9 @@ public class Clip {
 			lore.clear();
 		}
 		lore.add(this.tag);
+		if (this.exampleLore != null && !this.exampleLore.isEmpty()) {
+			lore.addAll(this.exampleLore);
+		}
 		Map<String, Object> clipData = getClipData(clip);
 		
 		String ammo = clipData.containsKey("ammo") ? (String) clipData.get("ammo") : null;

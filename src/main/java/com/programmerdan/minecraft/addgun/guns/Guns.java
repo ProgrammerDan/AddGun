@@ -89,6 +89,7 @@ public class Guns implements Listener {
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void gunBulletHitGroundEvent(ProjectileHitEvent event) {
 		if (!(event.getEntity() instanceof Projectile)) return;
+		if (event.getHitBlock() == null) return;
 		Projectile bullet = (Projectile) event.getEntity();
 		
 		StandardGun gun = bulletToGunMap.get(bullet.getName());
@@ -99,24 +100,25 @@ public class Guns implements Listener {
 		
 		if (begin == null || bulletType == null) {
 			AddGun.getPlugin().debug("Warning: bullet {1} claiming to be {0} but untracked -- from unloaded chunk?", gun.getBulletTag(), bullet.getUniqueId());
-			bullet.remove();
+			//bullet.remove();
 			return;
 		}
 		
 		if (!bullet.getType().equals(bulletType.getEntityType())) {
 			AddGun.getPlugin().debug("Bullet {1} matching {0} but has different type?!", bulletType.getName(), bullet.getUniqueId());
-			bullet.remove();
+			//bullet.remove();
 			return;
 		}
 
 		Location end = event.getHitBlock().getLocation().clone().add(0.5, 0.5, 0.5);
-		//World world = end.getWorld();
 
+		AddGun.getPlugin().debug("Warning: bullet {1} of {0} hit ground {2}", gun.getBulletTag(), bullet.getUniqueId(), end);
+		
 		gun.flightPath(begin, end, bulletType, true);
 		
 		gun.postHit(new HitDigest(HitPart.MISS, end), null, bullet, bulletType );
 
-		bullet.remove();
+		//bullet.remove();
 		return;
 	}
 	
@@ -211,7 +213,7 @@ public class Guns implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = false)
 	public void gunPlayerInteractEvent(PlayerInteractEvent event) {
-		if (event.isBlockInHand() || !event.hasItem() || !EquipmentSlot.HAND.equals(event.getHand()))
+		if (!event.hasItem() || !EquipmentSlot.HAND.equals(event.getHand()))
 			return;
 		
 		ItemStack item = event.getItem();
@@ -223,6 +225,9 @@ public class Guns implements Listener {
 		
 		Player player = event.getPlayer();
 
+		event.setUseInteractedBlock(Event.Result.DENY);
+		event.setCancelled(true);
+		
 		if (!gun.isAlive(gunData)) {
 			player.sendMessage(
 					ChatColor.AQUA + gun.getName() + ChatColor.RED + " needs repair before it can be used again!");
@@ -247,6 +252,7 @@ public class Guns implements Listener {
 		if (!gun.hasFuel(player, bulletType)) {
 			player.sendMessage(
 					ChatColor.AQUA + gun.getName() + ChatColor.RED + " requires more fuel (XP) to fire then you have!");
+			return;
 		}
 
 		Long nextUse = gun.getCooldown(player.getUniqueId());
@@ -342,10 +348,6 @@ public class Guns implements Listener {
 
 			player.setCooldown(gun.getMinimalGun().getType(), (int) ((nextUse - System.currentTimeMillis()) / 50));
 		}
-		
-		// Prevent normal effects of this tool
-		event.setUseInteractedBlock(Event.Result.DENY);
-		event.setCancelled(true);
 	}
 
 	/**

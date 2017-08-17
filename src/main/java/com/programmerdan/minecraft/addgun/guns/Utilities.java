@@ -269,6 +269,10 @@ public class Utilities {
 				if (gunData.hasKey("group")) {
 					gunMap.put("group", gunData.getString("group"));
 				}
+				
+				if (gunData.hasKey("unid")) {
+					gunMap.put("unid", gunData.getString("unid"));
+				}
 			}
 		}
 		return gunMap;
@@ -363,7 +367,15 @@ public class Utilities {
 			} else {
 				gunData.setString("group", (String) value);
 			}
-
+		}
+		
+		if (update.containsKey("unid")) {
+			Object value = update.get("unid");
+			if (value == null) {
+				gunData.remove("unid");
+			} else {
+				gunData.setString("unid", (String) value);
+			}
 		}
 		compound.set("GunData", gunData);
 		nmsGun.setTag(compound);
@@ -398,6 +410,10 @@ public class Utilities {
 				
 				if (gunData.hasKey("rounds")) {
 					clipMap.put("rounds", gunData.getInt("rounds"));
+				}
+				
+				if (gunData.hasKey("unid")) {
+					clipMap.put("unid", gunData.getString("unid"));
 				}
 			}
 		}
@@ -437,6 +453,15 @@ public class Utilities {
 				clipData.remove("rounds");
 			} else {
 				clipData.setInt("rounds", (Integer) value);
+			}
+		}
+		
+		if (update.containsKey("unid")) {
+			Object value = update.get("unid");
+			if (value == null) {
+				clipData.remove("unid");
+			} else {
+				clipData.setString("unid", (String) value);
 			}
 		}
 

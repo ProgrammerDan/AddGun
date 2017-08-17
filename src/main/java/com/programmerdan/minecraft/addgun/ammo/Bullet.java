@@ -74,6 +74,11 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 	private ItemStack example;
 	
 	/**
+	 * The Lore on the original example.
+	 */
+	private List<String> exampleLore;
+	
+	/**
 	 * Misfire explosion chance modifier (additive) (percentage)
 	 */
 	private double misfireBlowoutChance = 0.00;
@@ -264,8 +269,14 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 			 List<String> lore = meta.getLore();
 			 if (lore == null) {
 				 lore = new ArrayList<String>();
+			 } else {
+				 this.exampleLore = lore;
+				 lore = new ArrayList<String>();
 			 }
 			 lore.add(this.tag);
+			 if (this.exampleLore != null && !this.exampleLore.isEmpty()) {
+				 lore.addAll(this.exampleLore);
+			 }
 			 meta.setLore(lore);
 			 this.example.setItemMeta(meta);
 		} else {
@@ -582,6 +593,10 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 		
 		bullet.setVelocity(velocity);
 		bullet.setFireTicks(this.fireTicks);
+		
+		if (bullet instanceof Fireball) {
+			((Fireball) bullet).setIsIncendiary(Math.random() < this.fireChance);
+		}
 	}
 	
 	/* Standard Overrides */

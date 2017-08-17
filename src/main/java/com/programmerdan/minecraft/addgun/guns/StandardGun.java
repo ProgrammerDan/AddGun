@@ -92,6 +92,11 @@ public class StandardGun implements BasicGun {
 	private ItemStack gunExample = null;
 	
 	/**
+	 * Base lore that was on the example gun in config.
+	 */
+	private List<String> gunLore = null;
+	
+	/**
 	 * All the valid bullets that can be used with this gun, if it is directly loaded with bullets.
 	 */
 	private List<String> allBullets = null;
@@ -258,6 +263,10 @@ public class StandardGun implements BasicGun {
 			this.gunExample = config.getItemStack("example");
 			if (this.gunExample == null) {
 				throw new IllegalArgumentException("No inventory representation (section example) provided for this gun, it cannot be instanced");
+			} else {
+				if (this.gunExample.hasItemMeta() && this.gunExample.getItemMeta().hasLore()) {
+					this.gunLore = this.gunExample.getItemMeta().getLore();
+				}
 			}
 
 			this.maxAmmo = config.getInt("ammo.max", 0);
@@ -546,7 +555,7 @@ public class StandardGun implements BasicGun {
 		Location end = missData.hitLocation;
 		World world = end.getWorld();
 		world.playSound(end, Sound.BLOCK_GLASS_HIT, 1.0f, 1.5f);
-		world.spawnParticle(Particle.SMOKE_NORMAL, end, 35);
+		world.spawnParticle(Particle.SMOKE_NORMAL, end, 15, 0.1, 0.1, 0.1, 0.1);
 	}
 	
 	/**
@@ -566,7 +575,7 @@ public class StandardGun implements BasicGun {
 		// make a new sound where it hits.
 		world.playSound(end, Sound.ENTITY_FIREWORK_BLAST, 1.0f, 1.5f);
 		// make a splash
-		world.spawnParticle(Particle.SMOKE_NORMAL, end, 35);
+		world.spawnParticle(Particle.SMOKE_NORMAL, end, 35, 0.1, 0.1, 0.1, 0.1);
 	}
 	
 	/**
@@ -592,9 +601,9 @@ public class StandardGun implements BasicGun {
 				double distance = end.distance(start);
 	
 				Vector vector = end.subtract(start).toVector();
-				vector = vector.multiply(1.0d / distance);
+				vector = vector.multiply(0.1d / distance);
 				for (int i = 0; i < distance; i++) {
-					world.spawnParticle(Particle.FLAME, start.add(vector), 5);
+					world.spawnParticle(Particle.SMOKE_NORMAL, start.add(vector), 5, 0.01, 0.01, 0.01, 0.001);
 				}
 			}
 		}
@@ -613,7 +622,7 @@ public class StandardGun implements BasicGun {
 		Location end = hitData.hitLocation;
 		World world = end.getWorld();
 		world.playSound(end, Sound.BLOCK_GLASS_HIT, 1.0f, 1.5f);
-		world.spawnParticle(Particle.SMOKE_NORMAL, end, 35);
+		world.spawnParticle(Particle.SMOKE_NORMAL, end, 35, 0.1, 0.1, 0.1, 0.1);
 	}
 
 	/**
@@ -857,6 +866,7 @@ public class StandardGun implements BasicGun {
 		// this does any incendary effects / explosions for 
 		Location loc = hitData.hitLocation.clone();
 		World world = loc.getWorld();
+		StringBuffer dbg = new StringBuffer();
 		
 		double random = Math.random();
 		if (random < bulletType.getExplosionChance()) {
@@ -864,9 +874,21 @@ public class StandardGun implements BasicGun {
 			random = Math.random();
 			if (random < bulletType.getFireChance()) { // incendary!
 				// fire
-				world.createExplosion(loc, bulletType.getExplosionLevel(), true);
+				Bukkit.getScheduler().runTaskLater(AddGun.getPlugin(), new Runnable() {
+					@Override
+					public void run() {
+						world.createExplosion(loc.getX(), loc.getY(), loc.getZ(), bulletType.getExplosionLevel(), true, true);
+					}
+				} , 1l);
+				dbg.append("Created explosion ").append(bulletType.getExplosionLevel()).append(" on hit, with fire ");
 			} else {
-				world.createExplosion(loc, bulletType.getExplosionLevel(), false);
+				Bukkit.getScheduler().runTaskLater(AddGun.getPlugin(), new Runnable() {
+					@Override
+					public void run() {
+						world.createExplosion(loc.getX(), loc.getY(), loc.getZ(), bulletType.getExplosionLevel(), false, true);
+					}
+				}, 1l);
+				dbg.append("Created explosion ").append(bulletType.getExplosionLevel()).append(" on hit, with fire ");
 			}
 		}
 
@@ -874,15 +896,13 @@ public class StandardGun implements BasicGun {
 		if (hit != null && random < bulletType.getFireChance()) { // incendary!
 			// fire
 			hit.setFireTicks(bulletType.getFireTicks());
+			dbg.append("Lit hit on fire");
 		}
 		
+		AddGun.getPlugin().debug(dbg.toString());
+		
 		if (hit == null) {
-			world.spawnParticle(Particle.BLOCK_DUST, loc.clone().add( 0.5, 0.0, 0.0), 5);
-			world.spawnParticle(Particle.BLOCK_DUST, loc.clone().add(-0.5, 0.0, 0.0), 5);
-			world.spawnParticle(Particle.BLOCK_DUST, loc.clone().add( 0.0, 0.5, 0.0), 5);
-			world.spawnParticle(Particle.BLOCK_DUST, loc.clone().add( 0.0,-0.5, 0.0), 5);
-			world.spawnParticle(Particle.BLOCK_DUST, loc.clone().add( 0.0, 0.0, 0.5), 5);
-			world.spawnParticle(Particle.BLOCK_DUST, loc.clone().add( 0.0, 0.0,-0.5), 5);
+			world.spawnParticle(Particle.EXPLOSION_NORMAL, loc, 50, 1.0, 1.0, 1.0, 0.1);
 		}
 	}
 
@@ -1490,6 +1510,7 @@ public class StandardGun implements BasicGun {
 		double misfireChance = 1.0d - sigmoid((double) health, (double) this.middleRisk,0.5d, (double) this.riskSpread);
 		
 		double random = Math.random();
+		AddGun.getPlugin().debug("Misfire computation: {0} health {1} misfireChance {2} random", health, misfireChance, random);
 		if (random < misfireChance) {
 			return true;
 		}
@@ -1516,7 +1537,7 @@ public class StandardGun implements BasicGun {
 			Location explosion = entity.getLocation().clone().add(0.0d, 1.3d, 0.0d);
 			World world = explosion.getWorld();
 			random = Math.random();
-			world.createExplosion(explosion, this.baseBlowoutStrength + bulletType.getExplosionLevel(), (random < bulletType.getFireChance()) ? true : false);
+			world.createExplosion(explosion.getX(), explosion.getY(), explosion.getZ(), this.baseBlowoutStrength + bulletType.getExplosionLevel(), (random < bulletType.getFireChance()) ? true : false, true);
 
 			gunData.clear();
 			gunData.put("health", Integer.valueOf(0));
@@ -1545,8 +1566,10 @@ public class StandardGun implements BasicGun {
 	 * @param bulletType the type of the projectile (as a bullet)
 	 */
 	public void postShoot(Location loc, LivingEntity entity, Projectile bullet, Bullet bulletType) {
-		loc.getWorld().spawnParticle(Particle.FLAME, loc, 5);
-		loc.getWorld().playSound(loc, Sound.ENTITY_FIREWORK_LARGE_BLAST_FAR, 10.0f, 2.0f);
+		Object particleData = Particle.FLAME.getDataType();
+		loc.getWorld().spawnParticle(Particle.EXPLOSION_NORMAL, loc, 5, 0.1, 0.1, 0.1, 0.1);
+
+		loc.getWorld().playSound(loc, Sound.ENTITY_FIREWORK_LARGE_BLAST_FAR, 10.0f, 1.0f);
 	}
 
 	/**
@@ -1556,7 +1579,16 @@ public class StandardGun implements BasicGun {
 	 * @param direction the direction of shot
 	 */
 	public void knockback(LivingEntity entity, Vector direction) {
-		entity.teleport(entity.getLocation().setDirection(direction), TeleportCause.PLUGIN);
+		if (entity instanceof Player) {
+			Player p = (Player) entity;
+			Vector begin = p.getEyeLocation().getDirection().clone();
+			Vector end = begin.clone().getMidpoint(direction).getMidpoint(begin); // 25% of "direction" between start and where fire occurred.
+			long kickback = Math.max(Math.min(this.cooldown / 3, (long) Animation.FRAME_DELAY * 3l), (long) Animation.FRAME_DELAY * 2l);
+			long kickdown = Math.max((long) Animation.FRAME_DELAY * 2l, this.cooldown - kickback);
+			AddGun.getPlugin().getPlayerListener().playAnimation(p, new Animation(p, begin, kickback, direction, kickdown, end));
+		} else {
+			entity.teleport(entity.getLocation().setDirection(direction), TeleportCause.PLUGIN);
+		}
 	}
 	
 	/**
@@ -1567,6 +1599,7 @@ public class StandardGun implements BasicGun {
 	 */
 	public ItemStack updateGunLore(ItemStack gun) {
 		ItemMeta meta = gun.getItemMeta();
+		meta.setUnbreakable(true);
 		List<String> lore = meta.getLore();
 		if (lore == null) {
 			lore = new ArrayList<String>();
@@ -1574,6 +1607,9 @@ public class StandardGun implements BasicGun {
 			lore.clear();
 		}
 		lore.add(this.tag);
+		if (this.gunLore != null && !this.gunLore.isEmpty()) {
+			lore.addAll(this.gunLore);
+		}
 		Map<String, Object> gunData = getGunData(gun);
 		 
 		AmmoType type = (AmmoType) gunData.get("type");
@@ -1644,6 +1680,7 @@ public class StandardGun implements BasicGun {
 		} else {
 			display.append(ChatColor.GREEN).append("Gun is in good repair");
 		}
+		lore.add(display.toString());
 		
 		meta.setLore(lore);
 		gun.setItemMeta(meta);
@@ -1707,7 +1744,11 @@ public class StandardGun implements BasicGun {
 	 */
 	@Override
 	public ItemStack getMinimalGun() {
-		return this.gunExample.clone();
+		Map<String, Object> gunData = new HashMap<String, Object>();
+		
+		gunData.put("unid", UUID.randomUUID().toString());
+		
+		return updateGunData(this.gunExample.clone(), gunData);
 	}
 
 	/**
