@@ -4,28 +4,26 @@ import static com.programmerdan.minecraft.addgun.guns.Utilities.detailedHitBoxLo
 import static com.programmerdan.minecraft.addgun.guns.Utilities.getGunData;
 import static com.programmerdan.minecraft.addgun.guns.Utilities.sigmoid;
 
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.Particle;
-import org.bukkit.Sound;
-import org.bukkit.World;
 import org.bukkit.entity.Damageable;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
-import org.bukkit.entity.SmallFireball;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -42,6 +40,7 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.inventory.InventoryType.SlotType;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
@@ -80,6 +79,12 @@ public class Guns implements Listener {
 	 * TODO: evaluate refactoring and adding Bullet type as metadata.
 	 */
 	private Map<UUID, Bullet> inFlightBullets = new ConcurrentHashMap<>();
+	
+	private final ScheduledExecutorService scheduler;
+
+	public Guns() {
+		scheduler = Executors.newScheduledThreadPool(5);
+	}
 
 	/**
 	 * It hit the ground maybe!
@@ -114,7 +119,7 @@ public class Guns implements Listener {
 
 		AddGun.getPlugin().debug("Warning: bullet {1} of {0} hit ground {2}", gun.getBulletTag(), bullet.getUniqueId(), end);
 		
-		gun.flightPath(begin, end, bulletType, true);
+		//gun.flightPath(begin, end, bulletType, true);
 		
 		gun.postHit(new HitDigest(HitPart.MISS, end), null, bullet, bulletType );
 
@@ -181,7 +186,7 @@ public class Guns implements Listener {
 			
 			gun.postMiss(whereEnd, hit, bullet, continueBullet, bulletType);
 
-			gun.flightPath(begin, end, bulletType, false);
+			//gun.flightPath(begin, end, bulletType, false);
 		} else {
 			if (hit instanceof Damageable) {
 				Damageable dhit = (Damageable) hit;
@@ -195,7 +200,7 @@ public class Guns implements Listener {
 			
 			gun.postHit(whereEnd, hit, bullet, bulletType);
 			
-			gun.flightPath(begin, end, bulletType, true);
+			//gun.flightPath(begin, end, bulletType, true);
 		}
 	}
 
@@ -281,7 +286,7 @@ public class Guns implements Listener {
 					// based on their stillness and settledness.
 					double accuracy = computeAccuracyFor(gun, bulletType, player);
 					
-					double offset = player.isSneaking() ? 1.1d : 1.25d;
+					double offset = player.isSneaking() ? 1.2d : 1.35d;
 					Vector bbOff = player.getEyeLocation().getDirection().normalize();
 					bbOff.multiply(player.getWidth() / 2);
 					Location origin = player.getLocation().clone().add(bbOff.getX(), offset, bbOff.getZ());
@@ -319,20 +324,61 @@ public class Guns implements Listener {
 					
 					Vector baseVector = baseLocation.getDirection().normalize().multiply(speed);
 	
-					if (player.hasPermission("addgun.data")) {
+					/*if (player.hasPermission("addgun.data")) {
 						player.sendMessage(ChatColor.GOLD + String.format("Shot specifics | accuracy: %.5f | yawV: %.5f | pitchV: %.5f | velocity: %.5f,%.5f,%.5f",
 								accuracy, yawJitter, pitchJitter, baseVector.getX(), baseVector.getY(), baseVector.getZ()));
-					}
+					}*/
 	
 					Projectile bullet = gun.shoot(origin, bulletType, player, baseVector, false);
 					
-					AddGun.getPlugin().debug(" Spawning new bullet at {0} with velocity {1}", bullet.getLocation(),
-							bullet.getVelocity());
+					AddGun.getPlugin().debug(" Spawning new bullet at {0} with velocity {1}, acc {2}, yaw {3}, pitch {4}", bullet.getLocation(),
+							bullet.getVelocity(), accuracy, yawJitter, pitchJitter);
 					Location loc = bullet.getLocation().clone();
 					travelPaths.put(bullet.getUniqueId(), loc);
 					inFlightBullets.put(bullet.getUniqueId(), bulletType);
 					
 					gun.postShoot(loc, player, bullet, bulletType);
+					
+					scheduler.scheduleWithFixedDelay(new Runnable() {
+						private Location last = loc.clone();
+						private long lastUpdate = System.currentTimeMillis();
+						@Override
+						public void run() {
+							if (bullet != null && !bullet.isDead() && bullet.isValid()) {
+								UUID bID = bullet.getUniqueId();
+								Bullet definition = inFlightBullets.get(bID);
+								
+								AddGun.getPlugin().debug("bullet {0} at {1} with V {2}", definition.getName(), bullet.getLocation(), bullet.getVelocity());
+								Location now = bullet.getLocation().clone();
+								StandardGun gun = bulletToGunMap.get(bullet.getName());
+								if (now.equals(last)) {
+									if (System.currentTimeMillis() - lastUpdate > 250l) {
+										gun.flightPath(last.clone(), now.clone(), definition, true);
+										bullet.remove();
+										travelPaths.remove(bID);
+										inFlightBullets.remove(bID);
+										return;
+									}
+								} else {
+									lastUpdate = System.currentTimeMillis();
+									gun.flightPath(last.clone(), now.clone(), definition, false);
+									
+									last = now.clone();
+								}
+								
+								Chunk chunk = now.add(bullet.getVelocity()).getChunk();
+								if (!chunk.isLoaded()) {
+									bullet.remove();
+									travelPaths.remove(bID);
+									inFlightBullets.remove(bID);
+									return;
+								}
+							} else {
+								AddGun.getPlugin().debug("a bullet died");
+								throw new RuntimeException("bullet term");
+							}
+						}
+					}, 0l, 50l, TimeUnit.MILLISECONDS);
 					
 					player.setCooldown(gun.getMinimalGun().getType(), (int) (gun.getCooldown() / 50));
 
@@ -599,6 +645,23 @@ public class Guns implements Listener {
 		}
 	}
 
+	/**
+	 * This eliminates pending bullets on chunk unload
+	 * 
+	 * @param event
+	 */
+	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+	public void chunkUnloadClearBullets(ChunkUnloadEvent event) {
+		if (event.getChunk() == null) return;
+		Entity[] entities = event.getChunk().getEntities();
+		for (Entity e : entities) {
+			if (inFlightBullets.containsKey(e.getUniqueId())) {
+				inFlightBullets.remove(e.getUniqueId());
+				travelPaths.remove(e.getUniqueId());
+				e.remove();
+			}
+		}
+	}
 	
 	
 	/**

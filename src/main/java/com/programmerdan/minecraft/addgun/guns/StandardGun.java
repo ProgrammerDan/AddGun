@@ -17,6 +17,7 @@ import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.craftbukkit.v1_12_R1.entity.CraftProjectile;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Damageable;
 import org.bukkit.entity.Entity;
@@ -48,6 +49,8 @@ import com.programmerdan.minecraft.addgun.ArmorType;
 import com.programmerdan.minecraft.addgun.ammo.AmmoType;
 import com.programmerdan.minecraft.addgun.ammo.Bullet;
 import com.programmerdan.minecraft.addgun.ammo.Clip;
+
+import net.minecraft.server.v1_12_R1.EntityProjectile;
 
 import static com.programmerdan.minecraft.addgun.guns.Utilities.getArmorType;
 import static com.programmerdan.minecraft.addgun.guns.Utilities.getInvXp;
@@ -933,7 +936,10 @@ public class StandardGun implements BasicGun {
 	 */
 	public Projectile shoot(Location begin, Bullet bulletType, ProjectileSource shooter, Vector velocity, boolean overrideVelocity) {
 		World world = begin.getWorld();
+		begin = begin.clone();
+		begin.setDirection(velocity);
 		Projectile newBullet = world.spawn(begin, bulletType.getProjectileType() );
+				
 		newBullet.setCustomName(this.bulletTag);
 		newBullet.setBounce(false);
 		newBullet.setGravity(true);
