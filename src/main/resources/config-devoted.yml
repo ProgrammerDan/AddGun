@@ -1,0 +1,1282 @@
+debug: true
+global:
+ xpPerBottle: 10
+ # Use this to define how guns that use XP, treat XP bottles.
+bullets:
+ Bolt:
+  type: ARROW
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: ARROW
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Crossbow Bolt
+     lore: ["Hardened Crossbow Bolt"]
+  # don't worry about lores, that'll be set by the platform.
+  misfireBlowoutChance: 0.0
+  xpPerShot: 0
+  missRadius: 
+   max: 0.1
+   min: 0
+  sneak: # these are augments
+   inflection: 0.0 # seconds sneaking
+   spread: 0.0 # spread on sigmoid
+  still: # these are augments
+   inflection: 0.0
+   spread: 0.0
+  explosion:
+   chance: 0.0
+  incendiary:
+   chance: 0.0
+  # todo: scatter, knockback
+  reduction: # this is % reduction of damage a type confers, further enhanced by enchantments
+   base: 0.25
+   LEATHER: 0.011
+   GOLD: 0.011
+   CHAIN: 0.055
+   IRON: 0.11
+   DIAMOND: 0.33
+   IRON_BARDING: 0.11
+   GOLD_BARDING: 0.011
+   DIAMOND_BARDING: 0.33
+   # SHIELD isn't used, it has an internal deflection based on angle of hit
+   WINGS: -0.08
+  durability: # this is % of damage that gets applied to durability of the armor hit
+   base: 0.09
+   LEATHER: 0.09
+   GOLD: 0.18
+   CHAIN: 0.18
+   IRON: 0.09
+   DIAMOND: 0.047
+   IRON_BARDING: 0.09
+   GOLD_BARDING: 0.18
+   DIAMOND_BARDING: 0.047
+   SHIELD: 0.26
+   WINGS: 0.26
+  damage: # configure the damage by hitzone
+   avg: 12.5
+   spread: 3
+   BODY: # center of mass hit
+    avg: 0
+    spread: 0
+   LEGS: # legs hit
+    avg: -1
+    spread: -1
+   FEET: # feet hit
+    avg: -2
+    spread: -1
+   HEAD: # headshot!
+    avg: 2
+    spread: 0
+ Lead Slug:
+  type: SNOWBALL
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: IRON_NUGGET
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Lead Slug
+     lore: ["Standard Lead Ball"]
+  # don't worry about lores, that'll be set by the platform.
+  misfireBlowoutChance: .15 #basic lead slug are NOT safe
+  xpPerShot: 0
+  missRadius: # these are augments, round shot is not easy to aim
+   max: 5
+   min: 2
+  sneak: # these are augments
+   inflection: 1.5 # seconds sneaking
+   spread: 1.0 # spread on sigmoid
+  still: # these are augments
+   inflection: 3.0
+   spread: 2.0
+  explosion:
+   chance: 0.0
+  incendiary:
+   chance: 0.0
+  # todo: scatter, knockback
+  reduction: # this is % reduction of damage a type confers, further enhanced by enchantments
+   base: 0.11
+   LEATHER: 0.011
+   GOLD: 0.011
+   CHAIN: 0.055
+   IRON: 0.11
+   DIAMOND: 0.33
+   IRON_BARDING: 0.11
+   GOLD_BARDING: 0.011
+   DIAMOND_BARDING: 0.33
+   # SHIELD isn't used, it has an internal deflection based on angle of hit
+   WINGS: -0.08
+  durability: # this is % of damage that gets applied to durability of the armor hit
+   base: 0.09
+   LEATHER: 0.09
+   GOLD: 0.18
+   CHAIN: 0.18
+   IRON: 0.09
+   DIAMOND: 0.047
+   IRON_BARDING: 0.09
+   GOLD_BARDING: 0.18
+   DIAMOND_BARDING: 0.047
+   SHIELD: 0.26
+   WINGS: 0.26
+  damage: # configure the damage by hitzone
+   avg: 10
+   spread: 2
+   BODY: # center of mass hit
+    avg: 0
+    spread: 0
+   LEGS: # legs hit
+    avg: -1
+    spread: -1
+   FEET: # feet hit
+    avg: -2
+    spread: -1
+   HEAD: # headshot!
+    avg: 2
+    spread: 0
+ Minie Ball:
+  type: SNOWBALL
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: IRON_NUGGET
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Minie Ball
+     lore: ["Rifled Minie Ball"]
+  # don't worry about lores, that'll be set by the platform.
+  misfireBlowoutChance: .10 #basic lead slug are NOT safe
+  xpPerShot: 0
+  missRadius: # these are augments, rifled round shot is not easy to aim
+   max: 2.5
+   min: 1
+  sneak: # these are augments
+   inflection: 1.1 # seconds sneaking
+   spread: 1.0 # spread on sigmoid
+  still: # these are augments
+   inflection: 2.0
+   spread: 1.7
+  explosion:
+   chance: 0.0
+  incendiary:
+   chance: 0.0
+  # todo: scatter, knockback
+  reduction: # this is % reduction of damage a type confers, further enhanced by enchantments
+   base: 0.1
+   LEATHER: 0.01
+   GOLD: 0.01
+   CHAIN: 0.05
+   IRON: 0.1
+   DIAMOND: 0.3
+   IRON_BARDING: 0.1
+   GOLD_BARDING: 0.01
+   DIAMOND_BARDING: 0.3
+   # SHIELD isn't used, it has an internal deflection based on angle of hit
+   WINGS: -0.09
+  durability: # this is % of damage that gets applied to durability of the armor hit
+   base: 0.11
+   LEATHER: 0.11
+   GOLD: 0.22
+   CHAIN: 0.22
+   IRON: 0.11
+   DIAMOND: 0.055
+   IRON_BARDING: 0.11
+   GOLD_BARDING: 0.22
+   DIAMOND_BARDING: 0.055
+   SHIELD: 0.33
+   WINGS: 0.33
+  damage: # configure the damage by hitzone
+   avg: 15
+   spread: 3
+   BODY: # center of mass hit
+    avg: 0
+    spread: 0
+   LEGS: # legs hit
+    avg: -1
+    spread: -1
+   FEET: # feet hit
+    avg: -2
+    spread: -1
+   HEAD: # headshot!
+    avg: 3
+    spread: 0
+ Spitzer Bullet:
+  type: SNOWBALL
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: GOLD_NUGGET
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Spitzer Bullet
+     lore: ["Rifled Spitzer Bullet"]
+  misfireBlowoutChance: .08 #simple shells much safer
+  xpPerShot: 0
+  missRadius: # these are augments, shells, being rifled, are fairly consistent
+   max: 1.75
+   min: 0.05
+  sneak: # these are augments
+   inflection: 5 # seconds sneaking
+   spread: 0 # spread on sigmoid
+  still: # these are augments
+   inflection: 2.5
+   spread: 0
+  explosion:
+   chance: 0.0
+  incendiary:
+   chance: 0.0
+  # todo: scatter, knockback
+  reduction: # this is % reduction of damage a type confers, further enhanced by enchantments
+   base: 0.08
+   LEATHER: 0.01
+   GOLD: 0.01
+   CHAIN: 0.05
+   IRON: 0.07
+   DIAMOND: 0.1
+   IRON_BARDING: 0.07
+   GOLD_BARDING: 0.01
+   DIAMOND_BARDING: 0.1
+   WINGS: -0.09
+  durability: # this is % of damage that gets applied to durability of the armor hit
+   base: 0.1
+   LEATHER: 0.1
+   GOLD: 0.2
+   CHAIN: 0.2
+   IRON: 0.1
+   DIAMOND: 0.05
+   IRON_BARDING: 0.1
+   GOLD_BARDING: 0.2
+   DIAMOND_BARDING: 0.05
+   SHIELD: 0.5 # high velocity bullets shatter shields
+   WINGS: 0.3
+  damage: # configure the damage by hitzone
+   avg: 18
+   spread: 4
+   BODY: # center of mass hit
+    avg: 0
+    spread: 0
+   LEGS: # legs hit
+    avg: -1
+    spread: -1
+   FEET: # feet hit
+    avg: -2
+    spread: -1
+   HEAD: # headshot!
+    avg: 2
+    spread: 6
+ Rifled Bullet:
+  type: SNOWBALL
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: GOLD_NUGGET
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Rifled Bullet
+     lore: ["Standard Rifled Bullet"]
+  misfireBlowoutChance: .05 #simple shells much safer
+  xpPerShot: 0
+  missRadius: # these are augments, shells, being rifled, are fairly consistent
+   max: 1
+   min: 0
+  sneak: # these are augments
+   inflection: 0 # seconds sneaking
+   spread: 0 # spread on sigmoid
+  still: # these are augments
+   inflection: 0
+   spread: 0
+  explosion:
+   chance: 0.0
+  incendiary:
+   chance: 0.0
+  # todo: scatter, knockback
+  reduction: # this is % reduction of damage a type confers, further enhanced by enchantments
+   base: 0.08
+   LEATHER: 0.01
+   GOLD: 0.01
+   CHAIN: 0.05
+   IRON: 0.07
+   DIAMOND: 0.1
+   IRON_BARDING: 0.07
+   GOLD_BARDING: 0.01
+   DIAMOND_BARDING: 0.1
+   WINGS: -0.09
+  durability: # this is % of damage that gets applied to durability of the armor hit
+   base: 0.1
+   LEATHER: 0.1
+   GOLD: 0.2
+   CHAIN: 0.2
+   IRON: 0.1
+   DIAMOND: 0.05
+   IRON_BARDING: 0.1
+   GOLD_BARDING: 0.2
+   DIAMOND_BARDING: 0.05
+   SHIELD: 0.5 # high velocity bullets shatter shields
+   WINGS: 0.3
+  damage: # configure the damage by hitzone
+   avg: 20
+   spread: 5
+   BODY: # center of mass hit
+    avg: 0
+    spread: 0
+   LEGS: # legs hit
+    avg: -1
+    spread: -1
+   FEET: # feet hit
+    avg: -2
+    spread: -1
+   HEAD: # headshot!
+    avg: 3
+    spread: 4
+ Incendiary Bullet:
+  type: SNOWBALL
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: GOLD_NUGGET
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Incendiary Bullet
+     lore: ["Incendiary Bullet"]
+  misfireBlowoutChance: .15
+  xpPerShot: 0
+  missRadius: # these are augments, shells, being rifled, are fairly consistent
+   max: 1
+   min: 0
+  sneak: # these are augments
+   inflection: 0 # seconds sneaking
+   spread: 0 # spread on sigmoid
+  still: # these are augments
+   inflection: 0
+   spread: 0
+  explosion:
+   chance: 0.0
+  incendiary:
+   chance: 0.98
+   ticks: 35
+  # todo: scatter, knockback
+  reduction: # this is % reduction of damage a type confers, further enhanced by enchantments
+   base: 0.12
+   LEATHER: 0.03
+   GOLD: 0.03
+   CHAIN: 0.10
+   IRON: 0.14
+   DIAMOND: 0.3
+   IRON_BARDING: 0.14
+   GOLD_BARDING: 0.03
+   DIAMOND_BARDING: 0.2
+   WINGS: -0.1
+  durability: # this is % of damage that gets applied to durability of the armor hit
+   base: 0.15
+   LEATHER: 0.15
+   GOLD: 0.25
+   CHAIN: 0.25
+   IRON: 0.15
+   DIAMOND: 0.058
+   IRON_BARDING: 0.15
+   GOLD_BARDING: 0.25
+   DIAMOND_BARDING: 0.08
+   SHIELD: 0.6 # high velocity bullets shatter shields
+   WINGS: 0.8
+  damage: # configure the damage by hitzone
+   avg: 15
+   spread: 5
+   BODY: # center of mass hit
+    avg: 0
+    spread: 0
+   LEGS: # legs hit
+    avg: -1
+    spread: -1
+   FEET: # feet hit
+    avg: -2
+    spread: -1
+   HEAD: # headshot!
+    avg: 2
+    spread: 3
+ Exploding Bullet:
+  type: SNOWBALL
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: GOLD_NUGGET
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Exploding Bullet
+     lore: ["Low Yield Exploding Bullet"]
+  misfireBlowoutChance: .5
+  xpPerShot: 0
+  missRadius: # these are augments, shells, being rifled, are fairly consistent
+   max: 1
+   min: 0.08
+  sneak: # these are augments
+   inflection: 0 # seconds sneaking
+   spread: 0 # spread on sigmoid
+  still: # these are augments
+   inflection: 0
+   spread: 0
+  explosion:
+   chance: 0.98
+   level: 1.25
+  incendiary:
+   chance: 0.0
+  # todo: scatter, knockback
+  reduction: # this is % reduction of damage a type confers, further enhanced by enchantments
+   base: 0.08
+   LEATHER: 0.01
+   GOLD: 0.01
+   CHAIN: 0.05
+   IRON: 0.07
+   DIAMOND: 0.1
+   IRON_BARDING: 0.07
+   GOLD_BARDING: 0.01
+   DIAMOND_BARDING: 0.1
+   WINGS: -0.09
+  durability: # this is % of damage that gets applied to durability of the armor hit
+   base: 0.2
+   LEATHER: 0.2
+   GOLD: 0.4
+   CHAIN: 0.4
+   IRON: 0.2
+   DIAMOND: 0.1
+   IRON_BARDING: 0.2
+   GOLD_BARDING: 0.4
+   DIAMOND_BARDING: 0.1
+   SHIELD: 0.7 # high velocity bullets shatter shields
+   WINGS: 0.5
+  damage: # configure the damage by hitzone
+   avg: 10
+   spread: 7
+   BODY: # center of mass hit
+    avg: 0
+    spread: 0
+   LEGS: # legs hit
+    avg: 0
+    spread: 0
+   FEET: # feet hit
+    avg: 0
+    spread: 0
+   HEAD: # headshot!
+    avg: 1
+    spread: 2
+ Armor Piercing Bullet:
+  type: SNOWBALL
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: GOLD_NUGGET
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Armor Piercing Bullet
+     lore: ["Armor Piercing Bullet"]
+  misfireBlowoutChance: .1
+  xpPerShot: 0
+  missRadius: # these are augments, shells, being rifled, are fairly consistent
+   max: 0.1
+   min: 0.01
+  sneak: # these are augments
+   inflection: 0 # seconds sneaking
+   spread: 0 # spread on sigmoid
+  still: # these are augments
+   inflection: 0
+   spread: 0
+  explosion:
+   chance: 0.1
+   level: 0.75
+  incendiary:
+   chance: 0.1
+  # todo: scatter, knockback
+  reduction: # this is % reduction of damage a type confers, further enhanced by enchantments
+   base: 0.5
+   LEATHER: 0.2
+   GOLD: 0.3
+   CHAIN: 0.2
+   IRON: 0.35
+   DIAMOND: 0.4
+   IRON_BARDING: 0.35
+   GOLD_BARDING: 0.3
+   DIAMOND_BARDING: 0.4
+   WINGS: -0.4
+  durability: # this is % of damage that gets applied to durability of the armor hit
+   base: 0.5
+   LEATHER: 0.2
+   GOLD: 0.3
+   CHAIN: 0.2
+   IRON: 0.35
+   DIAMOND: 0.4
+   IRON_BARDING: 0.35
+   GOLD_BARDING: 0.3
+   DIAMOND_BARDING: 0.4
+   SHIELD: 0.9 # high velocity bullets shatter shields
+   WINGS: 0.5
+  damage: # configure the damage by hitzone
+   avg: 35
+   spread: 15
+   BODY: # center of mass hit
+    avg: 2
+    spread: 0
+   LEGS: # legs hit
+    avg: 0
+    spread: 0
+   FEET: # feet hit
+    avg: 0
+    spread: 0
+   HEAD: # headshot!
+    avg: 0
+    spread: 0
+ Mortar Shell:
+  type: SNOWBALL
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: FIREWORK_CHARGE
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Mortar Shell
+     lore: ["Standard Mortar Shell"]
+  misfireBlowoutChance: .7 # this is a big explosive, if you misfire, it will explode in your face
+  xpPerShot: 0
+  missRadius: # unrifled mortars are generally not accurate
+   max: 20
+   min: 5
+  sneak: # these are augments
+   inflection: 3 # seconds sneaking
+   spread: 0 # spread on sigmoid
+  still: # these are augments
+   inflection: -3
+   spread: 0
+  explosion:
+   chance: 90.0
+   level: 2.5 # boom
+  incendiary:
+   chance: 0.1
+   ticks: 10.0 # might set you on fire?
+  # todo: scatter, knockback
+  reduction: # this is % reduction of damage a type confers, further enhanced by enchantments
+   base: 0.4
+   LEATHER: 0.2
+   GOLD: 0.1
+   CHAIN: 0.15
+   IRON: 0.3
+   DIAMOND: 0.4
+   IRON_BARDING: 0.3
+   GOLD_BARDING: 0.1
+   DIAMOND_BARDING: 0.4
+   WINGS: -0.3
+  durability: # this is % of damage that gets applied to durability of the armor hit
+   base: 0.4
+   LEATHER: 0.2
+   GOLD: 0.1
+   CHAIN: 0.15
+   IRON: 0.3
+   DIAMOND: 0.4
+   IRON_BARDING: 0.3
+   GOLD_BARDING: 0.1
+   DIAMOND_BARDING: 0.4
+   SHIELD: 0.5 # heavy mortars will break shields
+   WINGS: 0.4
+  damage: # configure the damage by hitzone
+   avg: 5 # most mortar damage is the explosion + fire
+   spread: 1
+   BODY: # center of mass hit
+    avg: -1
+    spread: 0
+   LEGS: # legs hit
+    avg: -1
+    spread: 0
+   FEET: # feet hit
+    avg: -2
+    spread: 0
+   HEAD: # headshot!
+    avg: 5
+    spread: 0
+clips:
+ Pistol Clip:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: END_ROD
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Pistol Clip
+     lore: ["Small Pistol Clip"]
+  bullets:
+   Rifled Bullet: 10
+ Pistol Drum:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: IRON_INGOT
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Pistol Drum
+     lore: ["Pistol Drum Clip"]
+  bullets:
+   Rifled Bullet: 25
+ Small Pistol Clip:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: IRON_INGOT
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Small Pistol Clip
+     lore: ["Small Pistol Clip"]
+  bullets:
+   Rifled Bullet: 6
+   Incendiary Bullet: 4
+   Exploding Bullet: 4 
+ Rifle Clip:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: END_ROD
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Rifle Clip
+     lore: ["Medium Rifle Clip"]
+  bullets:
+   Rifled Bullet: 32
+   Incendiary Bullet: 32
+   Exploding Bullet: 32
+ Rifle Drum:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: END_ROD
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Rifle Drum
+     lore: ["Rifle Drum Clip"]
+  bullets:
+   Rifled Bullet: 64
+   Incendiary Bullet: 64
+   Exploding Bullet: 64
+ Sniper Clip:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: END_ROD
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Sniper Clip
+     lore: ["Sniper Rifle Clip"]
+  bullets:
+   Rifled Bullet: 10
+   Incendiary Bullet: 10
+   Exploding Bullet: 10
+   Armor Piercing Bullet: 10
+guns:
+ #RailGun:
+ # maxVelocity: 1000
+ ## Velocity is in blocks per tick
+ # cooldown: 15000
+ ## Cooldown is in MS (1000 = 1 second)
+ # maxUses: 50
+ ## maximum uses for this gun (until it breaks down)
+ # minUses: 5
+ ## level at which to prevent further use (set to 0 to allow it to be destroyed by use)
+ # damage: 1000.0
+ ## hearts of damage to cause from the bullet each hit
+ # passthrough: 10
+ ## number of entities it can damage in a row
+ # missRadius: 45
+ ## Jitter angular miss (in degrees) that is randomly applied on firing, in pitch and yaw
+ # blunt: 3.0
+ ## hearts of damage to cause from smacking someone over the head with the gun
+ # xpPerShot: 120
+ ## XP to take from inventory or player's XP bar to actually launch a projectile
+ Crossbow:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: BOW
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Crossbow  
+  ammo:
+   xp: 2
+   max: 1
+   bullets:
+   - Bolt
+  health:
+   max: 200
+   misfire:
+    inflection: 25
+    spread: 15
+    blowout:
+     chance: 0.0
+     strength: 0.0
+  speed: # in meters per tick (20 ticks in a second)
+   min: 10
+   max: 15
+  damage:
+   blunt: 4 #smack nerds over the head
+  miss:
+   radius:
+    max: 5
+    min: 0
+   still:
+    inflection: 1
+    spread: 2
+   sneak:
+    inflection: 1
+    spread: 2
+  cooldown:
+   milliseconds: 2000
+   equip: true
+  limits:
+   onlyOne: false
+ Muzzleloader:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: IRON_HOE
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Muzzleloader
+     lore: ["Muzzleloader"]  
+  ammo:
+   xp: 0
+   max: 1
+   bullets:
+   - Lead Slug
+   - Minie Ball
+  health:
+   max: 100
+   misfire:
+    inflection: 10
+    spread: 20
+    blowout:
+     chance: 0.11
+     strength: 1.5
+  speed: # in meters per tick (20 ticks in a second)
+   min: 12
+   max: 22
+  damage:
+   blunt: 2 #smack nerds over the head
+  miss:
+   radius:
+    max: 30
+    min: 0
+   still:
+    inflection: 8
+    spread: 2
+   sneak:
+    inflection: 4
+    spread: 2
+  cooldown:
+   milliseconds: 5000
+   equip: false
+  limits:
+   onlyOne: false
+ Bolt-action Rifle:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: IRON_HOE
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Bolt-action Rifle
+     lore: ["Bolt-action Rifle"]  
+  ammo:
+   xp: 0
+   max: 1
+   bullets:
+   - Minie Ball
+   - Spitzer Bullet
+  health:
+   max: 150
+   misfire:
+    inflection: 10
+    spread: 20
+    blowout:
+     chance: 0.1
+     strength: 1.5
+  speed: # in meters per tick (20 ticks in a second)
+   min: 18
+   max: 28
+  damage:
+   blunt: 2 #smack nerds over the head
+  miss:
+   radius:
+    max: 25
+    min: 0
+   still:
+    inflection: 6
+    spread: 2
+   sneak:
+    inflection: 6
+    spread: 2
+  cooldown:
+   milliseconds: 2000
+   equip: false
+  limits:
+   onlyOne: false
+ Flintlock Pistol:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: BLAZE_ROD
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Flintlock Pistol
+     lore: ["Flintlock Pistol"]  
+  ammo:
+   xp: 0
+   max: 1
+   bullets:
+   - Lead Slug
+   - Minie Ball
+  health:
+   max: 350
+   misfire:
+    inflection: 75
+    spread: 30
+    blowout:
+     chance: 0.01
+     strength: 0.75
+  speed: # in meters per tick (20 ticks in a second)
+   min: 11
+   max: 20
+  damage:
+   blunt: 1 #smack nerds over the head
+  miss:
+   radius:
+    max: 30
+    min: 3
+   still:
+    inflection: 5 
+    spread: 2
+   sneak:
+    inflection: 5
+    spread: 1
+  cooldown:
+   milliseconds: 2500
+   equip: true
+  limits:
+   onlyOne: false
+ Colt Revolver:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: BLAZE_ROD
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Colt Revolver
+     lore: ["Colt Revolver"]  
+  ammo:
+   xp: 0
+   max: 6
+   bullets:
+   - Spitzer Bullet
+  health:
+   max: 500
+   misfire:
+    inflection: 50
+    spread: 30
+    blowout:
+     chance: 0.01
+     strength: 0.5
+  speed: # in meters per tick (20 ticks in a second)
+   min: 10
+   max: 20
+  damage:
+   blunt: 1 #smack nerds over the head
+  miss:
+   radius:
+    max: 25
+    min: 1.5
+   still:
+    inflection: 10 
+    spread: 2
+   sneak:
+    inflection: 5
+    spread: 1
+  cooldown:
+   milliseconds: 250
+   equip: true
+  limits:
+   onlyOne: false
+ Borchardt Pistol:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: BLAZE_ROD
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Borchardt Pistol
+     lore: ["Borchardt Pistol"]  
+  ammo:
+   xp: 0
+   clips:
+   - Pistol Clip
+  health:
+   max: 1000
+   misfire:
+    inflection: 200
+    spread: 10
+    blowout:
+     chance: 0.02
+     strength: 1.0
+  speed: # in meters per tick (20 ticks in a second)
+   min: 15
+   max: 25
+  damage:
+   blunt: 1 #smack nerds over the head
+  miss:
+   radius:
+    max: 25
+    min: 1
+   still:
+    inflection: 8 
+    spread: 2
+   sneak:
+    inflection: 6
+    spread: 1
+  cooldown:
+   milliseconds: 100
+   equip: false
+  limits:
+   onlyOne: false
+ 9mm Pistol:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: BLAZE_ROD
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: 9mm Pistol
+     lore: ["9mm Pistol"]  
+  ammo:
+   xp: 0
+   clips:
+   - Pistol Clip
+   - Pistol Drum
+   - Small Pistol Clip
+  health:
+   max: 1500
+   misfire:
+    inflection: 300
+    spread: 15
+    blowout:
+     chance: 0.01
+     strength: 1.0
+  speed: # in meters per tick (20 ticks in a second)
+   min: 19
+   max: 29
+  damage:
+   blunt: 1 #smack nerds over the head
+  miss:
+   radius:
+    max: 20
+    min: 0.1
+   still:
+    inflection: 3 
+    spread: 2
+   sneak:
+    inflection: 3
+    spread: 1
+  cooldown:
+   milliseconds: 100
+   equip: false
+  limits:
+   onlyOne: false
+ Winchester 1873:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: WOOD_HOE
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Winchester 1873
+     lore: ["Winchester 1873 Rifle"]
+  ammo:
+   xp: 0
+   max: 1
+   bullets:
+   - Rifled Bullet
+   - Incendiary Bullet
+  health:
+   max: 2000
+   misfire:
+    inflection: 100
+    spread: 20
+    blowout:
+     chance: 0.03
+     strength: 1.0
+  speed: # in meters per tick (20 ticks in a second)
+   min: 19
+   max: 24
+  damage:
+   blunt: 1 #smack nerds over the head
+  miss:
+   radius:
+    max: 20
+    min: 1
+   still:
+    inflection: 5 # still doesn't help tbh 
+    spread: 0.75
+   sneak:
+    inflection: 5
+    spread: 1.5
+  cooldown:
+   milliseconds: 750
+   equip: true
+  limits:
+   onlyOne: false
+ AK-47:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: WOOD_HOE
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: AK-47
+     lore: ["AK-47"]
+  ammo:
+   xp: 0
+   clips:
+   - Rifle Clip
+   - Rifle Drum
+  health:
+   max: 500
+   misfire:
+    inflection: 250 # just like IRL, ak-47 is waitin' to blow
+    spread: 20
+    blowout:
+     chance: 0.03
+     strength: 1.0
+  speed: # in meters per tick (20 ticks in a second)
+   min: 20
+   max: 25
+  damage:
+   blunt: 1 #smack nerds over the head
+  miss:
+   radius:
+    max: 20
+    min: 3.5 # be close if you want to hit anything
+   still:
+    inflection: 4 # still doesn't help tbh 
+    spread: 1
+   sneak:
+    inflection: 4
+    spread: 1
+  cooldown:
+   milliseconds: 200
+   equip: false
+  limits:
+   onlyOne: false
+ M16:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: IRON_HOE
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: M16
+     lore: ["Rifle, Caliber 5.56 mm, M16"]
+  ammo:
+   xp: 0
+   clips:
+   - Rifle Clip
+   - Rifle Drum
+  health:
+   max: 3000
+   misfire:
+    inflection: 250
+    spread: 20
+    blowout:
+     chance: 0.01
+     strength: 1.0
+  speed: # in meters per tick (20 ticks in a second)
+   min: 22
+   max: 30
+  damage:
+   blunt: 3 #smack nerds over the head
+  miss:
+   radius:
+    max: 18.5
+    min: 0.6 # be close if you want to hit anything
+   still:
+    inflection: 3 # still doesn't help tbh 
+    spread: 1
+   sneak:
+    inflection: 3
+    spread: 1
+  cooldown:
+   milliseconds: 150
+   equip: false
+  limits:
+   onlyOne: false
+ M4:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: IRON_HOE
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: M4
+     lore: ["M4A1 Carbine"]
+  ammo:
+   xp: 0
+   clips:
+   - Rifle Clip
+   - Rifle Drum
+  health:
+   max: 3500
+   misfire:
+    inflection: 225
+    spread: 20
+    blowout:
+     chance: 0.01
+     strength: 1.0
+  speed: # in meters per tick (20 ticks in a second)
+   min: 24
+   max: 31
+  damage:
+   blunt: 3 #smack nerds over the head
+  miss:
+   radius:
+    max: 17.5
+    min: 0.4 # be close if you want to hit anything
+   still:
+    inflection: 3 # still doesn't help tbh 
+    spread: 1
+   sneak:
+    inflection: 3
+    spread: 1
+  cooldown:
+   milliseconds: 150
+   equip: false
+  limits:
+   onlyOne: false
+ M82:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: DIAMOND_HOE
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: M82
+     lore: ["Barrett M82"]
+  ammo:
+   xp: 0
+   clips:
+   - Sniper Clip
+  health:
+   max: 2000
+   misfire:
+    inflection: 200
+    spread: 15
+    blowout:
+     chance: 0.01
+     strength: 2.0
+  speed: # in meters per tick (20 ticks in a second)
+   min: 35
+   max: 50
+  damage:
+   blunt: 5 #smack nerds over the head
+  miss:
+   radius:
+    max: 35
+    min: 0.02 # be close if you want to hit anything
+   still:
+    inflection: 15 # still doesn't help tbh 
+    spread: 3
+   sneak:
+    inflection: 4
+    spread: 1
+  cooldown:
+   milliseconds: 500
+   equip: true
+  limits:
+   onlyOne: true 
+ Mortar:
+  example:
+    ==: org.bukkit.inventory.ItemStack
+    type: LEVER
+    amount: 1
+    meta:
+     ==: ItemMeta
+     meta-type: UNSPECIFIC
+     display-name: Mortar
+  ammo:
+   xp: 0
+   max: 1
+   bullets:
+   - Mortar Shell
+  health:
+   max: 50
+   misfire:
+    inflection: 5 # not a whole lot of shots
+    spread: 2
+    blowout:
+     chance: 0.25
+     strength: 1.0
+  speed: # in meters per tick (20 ticks in a second)
+   min: 1
+   max: 1.5
+  damage:
+   blunt: 5 #smack nerds over the head
+  miss:
+   radius:
+    max: 30
+    min: 15 # just not that accurate
+   still:
+    inflection: 20 
+    spread: 2
+   sneak:
+    inflection: 100
+    spread: 5
+  cooldown:
+   milliseconds: 5000
+   equip: true
+  limits:
+   onlyOne: true
+ RailGun:
+  maxVelocity: 1000
+  ## Velocity is in blocks per tick
+  cooldown: 15000
+  ## Cooldown is in MS (1000 = 1 second)
+  maxUses: 50
+  ## maximum uses for this gun (until it breaks down)
+  minUses: 5
+  ## level at which to prevent further use (set to 0 to allow it to be destroyed by use)
+  damage: 1000.0
+  ## hearts of damage to cause from the bullet each hit
+  passthrough: 10
+  ## number of entities it can damage in a row
+  missRadius: 45
+  ## Jitter angular miss (in degrees) that is randomly applied on firing, in pitch and yaw
+  blunt: 3.0
+  ## hearts of damage to cause from smacking someone over the head with the gun
+  xpPerShot: 120
+  ## XP to take from inventory or player's XP bar to actually launch a projectile

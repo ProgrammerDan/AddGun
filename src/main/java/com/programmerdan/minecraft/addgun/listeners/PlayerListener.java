@@ -131,13 +131,13 @@ public class PlayerListener implements Listener {
 	public void toggleSneakEvent(PlayerToggleSneakEvent event) {
 		if (event.isSneaking()) {
 			sneakingSince.computeIfAbsent(event.getPlayer().getUniqueId(), u -> {
-				if (event.getPlayer().hasPermission("addgun.data")) { event.getPlayer().sendMessage(ChatColor.GOLD + " sneak started"); }
+				//if (event.getPlayer().hasPermission("addgun.data")) { event.getPlayer().sendMessage(ChatColor.GOLD + " sneak started"); }
 				return System.currentTimeMillis();
 			});
 		} else {
-			if (sneakingSince.containsKey(event.getPlayer().getUniqueId()) && event.getPlayer().hasPermission("addgun.data")) { 
+			/*if (sneakingSince.containsKey(event.getPlayer().getUniqueId()) && event.getPlayer().hasPermission("addgun.data")) { 
 				event.getPlayer().sendMessage(ChatColor.GOLD + " sneak cleared");
-			}
+			}*/
 			sneakingSince.remove(event.getPlayer().getUniqueId());
 		}
 	}
@@ -152,13 +152,13 @@ public class PlayerListener implements Listener {
 	public void toggleSprintEvent(PlayerToggleSprintEvent event) {
 		if (event.isSprinting()) {
 			sprintingSince.computeIfAbsent(event.getPlayer().getUniqueId(), u -> {
-				if (event.getPlayer().hasPermission("addgun.data")) { event.getPlayer().sendMessage(ChatColor.GOLD + " sprint started"); }
+				//if (event.getPlayer().hasPermission("addgun.data")) { event.getPlayer().sendMessage(ChatColor.GOLD + " sprint started"); }
 				return System.currentTimeMillis();
 			});
 		} else {
-			if (sprintingSince.containsKey(event.getPlayer().getUniqueId()) && event.getPlayer().hasPermission("addgun.data")) { 
+			/*if (sprintingSince.containsKey(event.getPlayer().getUniqueId()) && event.getPlayer().hasPermission("addgun.data")) { 
 				event.getPlayer().sendMessage(ChatColor.GOLD + " sprint cleared");
-			}
+			}*/
 			sprintingSince.remove(event.getPlayer().getUniqueId());
 		}
 	}
@@ -173,13 +173,13 @@ public class PlayerListener implements Listener {
 	public void toggleGlideEvent(PlayerToggleFlightEvent event) {
 		if (event.isFlying()) {
 			glidingSince.computeIfAbsent(event.getPlayer().getUniqueId(), u -> {
-				if (event.getPlayer().hasPermission("addgun.data")) { event.getPlayer().sendMessage(ChatColor.GOLD + "glide started"); }
+				//if (event.getPlayer().hasPermission("addgun.data")) { event.getPlayer().sendMessage(ChatColor.GOLD + "glide started"); }
 				return System.currentTimeMillis();
 			});
 		} else {
-			if (glidingSince.containsKey(event.getPlayer().getUniqueId()) && event.getPlayer().hasPermission("addgun.data")) { 
+			/*if (glidingSince.containsKey(event.getPlayer().getUniqueId()) && event.getPlayer().hasPermission("addgun.data")) { 
 				event.getPlayer().sendMessage(ChatColor.GOLD + " glide cleared");
-			}
+			}*/
 			glidingSince.remove(event.getPlayer().getUniqueId());
 		}
 	}
@@ -197,13 +197,13 @@ public class PlayerListener implements Listener {
 		Player eventPlayer = (Player) event.getEntity();
 		if (event.isGliding()) {
 			glidingSince.computeIfAbsent(eventPlayer.getUniqueId(), u -> {
-				if (eventPlayer.hasPermission("addgun.data")) { eventPlayer.sendMessage(ChatColor.GOLD + "glide started"); }
+				//if (eventPlayer.hasPermission("addgun.data")) { eventPlayer.sendMessage(ChatColor.GOLD + "glide started"); }
 				return System.currentTimeMillis();
 			});
 		} else {
-			if (glidingSince.containsKey(eventPlayer.getUniqueId()) && eventPlayer.hasPermission("addgun.data")) { 
+			/*if (glidingSince.containsKey(eventPlayer.getUniqueId()) && eventPlayer.hasPermission("addgun.data")) { 
 				eventPlayer.sendMessage(ChatColor.GOLD + " glide cleared");
-			}
+			}*/
 			glidingSince.remove(eventPlayer.getUniqueId());
 		}
 	}
@@ -218,13 +218,13 @@ public class PlayerListener implements Listener {
 	public void playerMoveEvent(PlayerMoveEvent event) {
 		if (event.getFrom().distanceSquared(event.getTo()) <= .000001) {
 			stillSince.computeIfAbsent(event.getPlayer().getUniqueId(), u -> {
-				if (event.getPlayer().hasPermission("addgun.data")) { event.getPlayer().sendMessage(ChatColor.GOLD + " still started"); }
+				//if (event.getPlayer().hasPermission("addgun.data")) { event.getPlayer().sendMessage(ChatColor.GOLD + " still started"); }
 				return System.currentTimeMillis(); 
 			});
 		} else {
-			if (stillSince.containsKey(event.getPlayer().getUniqueId()) && event.getPlayer().hasPermission("addgun.data")) {
+			/*if (stillSince.containsKey(event.getPlayer().getUniqueId()) && event.getPlayer().hasPermission("addgun.data")) {
 				event.getPlayer().sendMessage(ChatColor.GOLD + " still cleared");
-			}
+			}*/
 			stillSince.remove(event.getPlayer().getUniqueId());
 		}
 	}
@@ -271,7 +271,7 @@ public class PlayerListener implements Listener {
 		if (event.getEntered() != null && event.getVehicle() != null && event.getEntered() instanceof Player) {
 			Player eventPlayer = (Player) event.getEntered();
 			vehicleSince.computeIfAbsent(eventPlayer.getUniqueId(), u -> {
-				if (eventPlayer.hasPermission("addgun.data")) {eventPlayer.sendMessage(ChatColor.GOLD + " entered vehicle"); }
+				//if (eventPlayer.hasPermission("addgun.data")) {eventPlayer.sendMessage(ChatColor.GOLD + " entered vehicle"); }
 				return System.currentTimeMillis(); 
 			});
 		}
@@ -287,9 +287,9 @@ public class PlayerListener implements Listener {
 	public void vehicleExitEvent(VehicleExitEvent event) {
 		if (event.getExited() != null && event.getVehicle() != null && event.getExited() instanceof Player) {
 			Player eventPlayer = (Player) event.getExited();
-			if (vehicleSince.containsKey(eventPlayer.getUniqueId()) && eventPlayer.hasPermission("addgun.data")) {
+			/*if (vehicleSince.containsKey(eventPlayer.getUniqueId()) && eventPlayer.hasPermission("addgun.data")) {
 				eventPlayer.sendMessage(ChatColor.GOLD + " exited vehicle");
-			}
+			}*/
 			vehicleSince.remove(eventPlayer.getUniqueId());
 		}
 	}
