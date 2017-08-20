@@ -651,6 +651,7 @@ public class StandardGun implements BasicGun {
 		double variance = (absVelocity - (this.avgSpeed)) / ((this.maxSpeed - this.minSpeed + 1) / 4.0); // variance is now "centered" on average speed, in range [-avg, +avg]
 		
 		double baseRealDamage = (twosigma / 4) * (1 + (variance / Math.sqrt( 1 + (variance* variance)))) + median;
+		double originalBaseDamage = baseRealDamage;
 
 		double finalDamage = baseRealDamage;
 		ItemStack armorHit = null;
@@ -784,9 +785,9 @@ public class StandardGun implements BasicGun {
 			// Basically, unbreaking reduces the amount of durability damage that the armor will sustain 
 			double unbReduction = (1.0 + StandardGun.baseUnbreakingProtection * StandardGun.protectionCurve[unbLevel]);
 			double finalDuraDamage = baseRealDamage * (1.0 - (1.0 - bulletType.getArmorDamage(grade)) * unbReduction);
-			if (armorHit.getDurability() < finalDuraDamage) {
+			if (armorHit.getDurability() + finalDuraDamage > armorHit.getType().getMaxDurability()) {
 				// broken.
-				double directDamage = finalDuraDamage - armorHit.getDurability();
+				double directDamage = finalDuraDamage - (armorHit.getType().getMaxDurability() - armorHit.getDurability());
 				
 				finalDamage += directDamage; // this is the bit of damage the armor was meant to absorb, but didn't.
 				
@@ -795,7 +796,7 @@ public class StandardGun implements BasicGun {
 				AddGun.getPlugin().debug(String.format("Armor broken by dura damage %.2f, adding the remaining %.2f to the player damage", 
 						finalDuraDamage, directDamage));
 			} else {
-				armorHit.setDurability((short) (armorHit.getDurability() - Math.round(finalDuraDamage)));
+				armorHit.setDurability((short) (armorHit.getDurability() + Math.round(finalDuraDamage)));
 				
 				AddGun.getPlugin().debug(String.format("Armor damaged by %.2f", finalDuraDamage));
 			}
@@ -842,6 +843,9 @@ public class StandardGun implements BasicGun {
 				break;
 			}
 		}
+
+		AddGun.getPlugin().debug(String.format("Orig Base damage %.2f, Base damage of %.2f, Final damage of %.2f",
+				originalBaseDamage, baseRealDamage, finalDamage));
 		
 		final double trueFinalDamage = finalDamage;
 		//TODO: player states? custom shit? event?

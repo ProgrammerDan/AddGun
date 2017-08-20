@@ -979,8 +979,8 @@ guns:
   health:
    max: 1500
    misfire:
-    inflection: 300
-    spread: 15
+    inflection: 200
+    spread: 5
     blowout:
      chance: 0.01
      strength: 1.0
