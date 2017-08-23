@@ -31,6 +31,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.Event.Result;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDamageEvent;
+import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
@@ -95,6 +96,7 @@ public class Guns implements Listener {
 	public void gunBulletHitGroundEvent(ProjectileHitEvent event) {
 		if (!(event.getEntity() instanceof Projectile)) return;
 		if (event.getHitBlock() == null) return;
+
 		Projectile bullet = (Projectile) event.getEntity();
 		
 		StandardGun gun = bulletToGunMap.get(bullet.getName());
@@ -115,6 +117,29 @@ public class Guns implements Listener {
 			return;
 		}
 
+		Material block = event.getHitBlock().getType();
+		if (!block.isSolid() && block.isTransparent()) {
+			if (Material.LAVA.equals(block) || Material.STATIONARY_LAVA.equals(block)) {
+				// lava, it dies.
+			} else {
+				// respawn it
+				/*Location newBegin = event.getHitBlock().getLocation().clone();
+				if (hit instanceof Damageable) {
+					Damageable dhit = (Damageable) hit;
+					newBegin.add(bullet.getVelocity().normalize().multiply(dhit.getWidth() * 2));
+				} else {
+					newBegin.add(bullet.getVelocity().normalize().multiply(1.42)); // diagonalize!
+				}
+				AddGun.getPlugin().debug(" Just Missed at location {0}, spawning continue at {1} with velocity {2}", 
+						end, newBegin, bullet.getVelocity());
+				
+				Projectile continueBullet = gun.shoot(newBegin, bulletType, bullet.getShooter(), bullet.getVelocity(), true);
+				
+				gun.postMiss(whereEnd, hit, bullet, continueBullet, bulletType);
+*/	
+			}
+		}
+		
 		Location end = event.getHitBlock().getLocation().clone().add(0.5, 0.5, 0.5);
 
 		AddGun.getPlugin().debug("Warning: bullet {1} of {0} hit ground {2}", gun.getBulletTag(), bullet.getUniqueId(), end);
@@ -662,7 +687,6 @@ public class Guns implements Listener {
 			}
 		}
 	}
-	
 	
 	/**
 	 * Using a supplied item, identifies which gun, or if none, null.

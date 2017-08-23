@@ -676,7 +676,7 @@ public class StandardGun implements BasicGun {
 			case RIGHT_ARM:
 			case RIGHT_FOOT:
 			case RIGHT_HAND:// all variants on body atm
-				armorHit = equipment.getLeggings();
+				armorHit = equipment.getChestplate();
 				shield = equipment.getItemInOffHand();
 				break;
 			case BOOTS:
@@ -814,7 +814,7 @@ public class StandardGun implements BasicGun {
 			case RIGHT_ARM:
 			case RIGHT_FOOT:
 			case RIGHT_HAND:// all variants on body atm
-				equipment.setLeggings(armorHit);
+				equipment.setChestplate(armorHit);
 				if (tShield != null && Material.SHIELD.equals(tShield.getType())) {
 					equipment.setItemInOffHand(shield);
 				}
@@ -885,6 +885,7 @@ public class StandardGun implements BasicGun {
 					@Override
 					public void run() {
 						world.createExplosion(loc.getX(), loc.getY(), loc.getZ(), bulletType.getExplosionLevel(), true, true);
+						world.createExplosion(loc.getX(), loc.getY(), loc.getZ(), bulletType.getExplosionLevel() * 3, false, false);
 					}
 				} , 1l);
 				dbg.append("Created explosion ").append(bulletType.getExplosionLevel()).append(" on hit, with fire ");
@@ -893,9 +894,10 @@ public class StandardGun implements BasicGun {
 					@Override
 					public void run() {
 						world.createExplosion(loc.getX(), loc.getY(), loc.getZ(), bulletType.getExplosionLevel(), false, true);
+						world.createExplosion(loc.getX(), loc.getY(), loc.getZ(), bulletType.getExplosionLevel() * 3, false, false);
 					}
 				}, 1l);
-				dbg.append("Created explosion ").append(bulletType.getExplosionLevel()).append(" on hit, with fire ");
+				dbg.append("Created explosion ").append(bulletType.getExplosionLevel()).append(" on hit, without fire ");
 			}
 		}
 
