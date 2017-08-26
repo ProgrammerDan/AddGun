@@ -2,6 +2,24 @@ debug: true
 global:
  xpPerBottle: 10
  # Use this to define how guns that use XP, treat XP bottles.
+ # Use these to determine if people can give themselves weapons
+ self:
+  # Each section supports "give" -- true/false, "limit" -- counting number, time -- in ms, and resetOnDeath -- true/false
+  gun: 
+   # Give decides if players can self give or not
+   give: true
+   # Limit determines how many guns a player can give themselves before a timeout is met. Timeout starts with first give.
+   limit: 2
+   # Timeout on limit, if any
+   time: 18000
+   # Reset timeout and limits on death
+   reset: true
+  clip:
+   give: true
+  bullet:
+   give: true
+  repair:
+   give: false
 bullets:
  Bolt:
   type: ARROW
@@ -269,7 +287,7 @@ bullets:
    HEAD: # headshot!
     avg: 2
     spread: 6
- Rifled Bullet:
+ FMJ Bullet:
   type: SNOWBALL
   example:
     ==: org.bukkit.inventory.ItemStack
@@ -278,8 +296,8 @@ bullets:
     meta:
      ==: ItemMeta
      meta-type: UNSPECIFIC
-     display-name: Rifled Bullet
-     lore: ["Standard Rifled Bullet"]
+     display-name: FMJ Bullet
+     lore: ["Standard FMJ Bullet"]
   misfireBlowoutChance: .05 #simple shells much safer
   xpPerShot: 0
   missRadius: # these are augments, shells, being rifled, are fairly consistent
@@ -611,7 +629,7 @@ clips:
      display-name: Pistol Clip
      lore: ["Small Pistol Clip"]
   bullets:
-   Rifled Bullet: 10
+   FMJ Bullet: 10
  Pistol Drum:
   example:
     ==: org.bukkit.inventory.ItemStack
@@ -623,7 +641,7 @@ clips:
      display-name: Pistol Drum
      lore: ["Pistol Drum Clip"]
   bullets:
-   Rifled Bullet: 25
+   FMJ Bullet: 25
  Small Pistol Clip:
   example:
     ==: org.bukkit.inventory.ItemStack
@@ -635,7 +653,7 @@ clips:
      display-name: Small Pistol Clip
      lore: ["Small Pistol Clip"]
   bullets:
-   Rifled Bullet: 6
+   FMJ Bullet: 6
    Incendiary Bullet: 4
    Exploding Bullet: 4 
  Rifle Clip:
@@ -649,7 +667,7 @@ clips:
      display-name: Rifle Clip
      lore: ["Medium Rifle Clip"]
   bullets:
-   Rifled Bullet: 32
+   FMJ Bullet: 32
    Incendiary Bullet: 32
    Exploding Bullet: 32
  Rifle Drum:
@@ -663,7 +681,7 @@ clips:
      display-name: Rifle Drum
      lore: ["Rifle Drum Clip"]
   bullets:
-   Rifled Bullet: 64
+   FMJ Bullet: 64
    Incendiary Bullet: 64
    Exploding Bullet: 64
  Sniper Clip:
@@ -677,7 +695,7 @@ clips:
      display-name: Sniper Clip
      lore: ["Sniper Rifle Clip"]
   bullets:
-   Rifled Bullet: 10
+   FMJ Bullet: 10
    Incendiary Bullet: 10
    Exploding Bullet: 10
    Armor Piercing Bullet: 10
@@ -1018,7 +1036,7 @@ guns:
    xp: 0
    max: 1
    bullets:
-   - Rifled Bullet
+   - FMJ Bullet
    - Incendiary Bullet
   health:
    max: 2000

@@ -547,6 +547,8 @@ public class Guns implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
 	public void equipWeaponEvent(InventoryClickEvent event) {
+		if (event.getAction() == null || Result.DENY.equals(event.getResult())) return;
+		
 		HumanEntity human = event.getWhoClicked();
 
 		ItemStack current = event.getCurrentItem();
@@ -641,6 +643,7 @@ public class Guns implements Listener {
 	
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
 	public void equipWeaponEvent(InventoryDragEvent event) {
+		if (Result.DENY.equals(event.getResult())) return;
 		HumanEntity human = event.getWhoClicked();
 		
 		Inventory inv = event.getInventory();

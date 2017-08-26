@@ -1,8 +1,19 @@
 name: ${project.name}
 version: ${project.version}
-author: [ProgrammerDan]
+author: ProgrammerDan
 main: com.programmerdan.minecraft.addgun.AddGun
+website: http://www.devotedmc.com
+description: Adds guns to Minecraft. Fully configurable.
 commands:
+ addgunhelp:
+  description: Shows the commands useable for this plugin
+  usage: |
+   /giveselfgun <gun>
+   /giveselfbullet <bullet> [<amount>]
+   /giveselfclip <clip>
+   /repairselfgun
+  aliases: gunhelp
+  permission: addgun.self
  addgun:
   description: Shows the commands useable for this plugin
   usage: |
@@ -11,44 +22,71 @@ commands:
    /givebullet <player> <bullet> [<amount>]
    /giveclip <player> <clip>
    /repairgun <player>
-  alias: agun
+  aliases: agun
   permission: addgun.*
  givegun:
   description: Gives player a weapon.
   usage: |
-   /givegun <player> <gun>
-  alias: ag.give
+   /<command> <player> <gun>
+  aliases: ag.give
   permission: addgun.give
  givebullet:
   description: Gives player a bullet for a weapon.
   usage: |
-   /givebullet <player> <bullet> <amount>
-  alias: ag.gb
+   /<command> <player> <bullet> <amount>
+  aliases: ag.gb
   permission: addgun.give
  giveclip:
   description: Gives player a clip for a weapon
   usage: | 
-   /giveclip <player> <clip>
-  alias: ag.gc
+   /<command> <player> <clip>
+  aliases: ag.gc
   permission: addgun.give
  repairgun:
   description: Repairs a player's held gun
   usage: |
-   /repairgun <player>
-  alias: ag.rg
+   /<command> <player>
+  aliases: ag.rg
   permission: addgun.repair
+ giveselfgun:
+  description: Give yourself a gun.
+  usage: |
+   /<command> <gun>
+  aliases: gun
+  permission: addgun.self
+ giveselfbullet:
+  description: Give yourself bullets.
+  usage: |
+   /<command> <bullet>
+  aliases: bullet
+  permission: addgun.self
+ giveselfclip:
+  description: Give yourself ammo clips.
+  usage: |
+   /<command> <clip>
+  aliases: [gclip, clip]
+  permission: addgun.self
+ repairselfgun:
+  description: Fix the gun you are holding.
+  usage:
+   /<command>
+  aliases: rgun
+  permission: addgun.self 
 permissions:
  addgun.*:
   description: Gives access to all Addgun commands
-  default: op
   children:
    addgun.give: true
-  addgun.give:
-   description: Allows gifting players specific weapons
-   default: op
-  addgun.repair:
-   description: Allows repairing a gun
-   default: op
-  addgun.data:
-   description: Allows insight into special data as weapons are used
-   default: op
+   addgun.self: true
+ addgun.give:
+  description: Allows gifting players specific weapons
+  default: op
+ addgun.repair:
+  description: Allows repairing a gun
+  default: op
+ addgun.data:
+  description: Allows insight into special data as weapons are used
+  default: op
+ addgun.self:
+  description: Allows use of self-facing controls
+  default: true

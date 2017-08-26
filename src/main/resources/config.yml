@@ -1,7 +1,25 @@
 debug: true
 global:
- xpPerBottle: 10
  # Use this to define how guns that use XP, treat XP bottles.
+ xpPerBottle: 10
+ # Use these to determine if people can give themselves weapons
+ self:
+  # Each section supports "give" -- true/false, "limit" -- counting number, time -- in ms, and resetOnDeath -- true/false
+  gun: 
+   # Give decides if players can self give or not
+   give: true
+   # Limit determines how many guns a player can give themselves before a timeout is met. Timeout starts with first give.
+   limit: 2
+   # Timeout on limit, if any
+   time: 18000
+   # Reset timeout and limits on death
+   reset: true
+  clip:
+   give: true
+  bullet:
+   give: true
+  repair:
+   give: false
 bullets:
  Lead Slug:
   type: SMALL_FIREBALL

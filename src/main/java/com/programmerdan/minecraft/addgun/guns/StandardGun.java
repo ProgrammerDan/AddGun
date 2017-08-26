@@ -1117,6 +1117,9 @@ public class StandardGun implements BasicGun {
 		if (gunData == null || gunData.isEmpty()) return new ItemStack[] {gun, null};
 		
 		AmmoType type = (AmmoType) gunData.get("type");
+		if (type == null) {
+			return new ItemStack[] {gun, null};
+		}
 		ItemStack ammo = null;
 		Bullet bullet = null;
 		switch(type) {
@@ -1132,15 +1135,19 @@ public class StandardGun implements BasicGun {
 			gunData.put("ammo", null);
 			break;
 		case CLIP:
-			if (!gunData.containsKey("ammo") || !gunData.containsKey("clip")) return new ItemStack[] {gun, null};
+			if (!gunData.containsKey("clip")) return new ItemStack[] {gun, null};
 			
-			bullet = AddGun.getPlugin().getAmmo().getBullet((String) gunData.get("ammo"));
 			Clip clip = AddGun.getPlugin().getAmmo().getClip((String) gunData.get("clip"));
 			
-			if ((Integer) gunData.get("rounds") > 0) {
-				ammo = clip.getClipItem(bullet, (Integer) gunData.get("rounds"));
+			if (gunData.containsKey("ammo")) { 
+				bullet = AddGun.getPlugin().getAmmo().getBullet((String) gunData.get("ammo"));
+				if ((Integer) gunData.get("rounds") > 0) {
+					ammo = clip.getClipItem(bullet, (Integer) gunData.get("rounds"));
+				} else {
+					ammo = clip.getClipItem(bullet, 0);
+				}
 			} else {
-				ammo = clip.getClipItem(bullet, 0);
+				ammo = clip.getClipItem(null, 0);
 			}
 			break;
 		case INVENTORY:
