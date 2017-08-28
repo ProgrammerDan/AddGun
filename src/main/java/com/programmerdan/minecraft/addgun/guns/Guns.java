@@ -553,6 +553,7 @@ public class Guns implements Listener {
 
 		ItemStack current = event.getCurrentItem();
 		ItemStack cursor = event.getCursor();
+		ItemStack gunItem = null;
 		
 		StandardGun currentGun = findGun(current);
 		StandardGun cursorGun = findGun(cursor);
@@ -607,6 +608,7 @@ public class Guns implements Listener {
 				if (cursorGun != null && SlotType.QUICKBAR.equals(event.getSlotType())) {
 					isEquip = true;
 					equpGun = cursorGun;
+					gunItem = cursor;
 				}
 				break;
 			case MOVE_TO_OTHER_INVENTORY:
@@ -615,10 +617,17 @@ public class Guns implements Listener {
 				if (currentGun != null) {
 					isEquip = true;
 					equpGun = currentGun;
+					gunItem = current;
 				}
 				break;
 			default:
 				break;
+			}
+			if (equpGun != null && isEquip) {
+				// check valid.
+				if (!equpGun.validGun(gunItem)) {
+					AddGun.getPlugin().debug("Invalid gun held by {0}, claiming to be {1}, {2}", human.getName(), equpGun.getName(), gunItem);
+				}
 			}
 			if (equpGun != null && equpGun.isCooldownOnEquip() && isEquip) {
 				final StandardGun equipGun = equpGun;
@@ -709,6 +718,23 @@ public class Guns implements Listener {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Checks the LivingEntity's inventory, do they have a gun?
+	 * 
+	 * @param entity
+	 * @return true if they do, false otherwise
+	 */
+	public boolean hasGun(LivingEntity entity) {
+		if (entity == null) return false;
+
+		for (Set<StandardGun> sets : gunMap.values() ) {
+			for (StandardGun gun : sets) {
+				if (gun.hasGun(entity)) return true;
+			}
+		}
+		return false;
 	}
 
 	/**

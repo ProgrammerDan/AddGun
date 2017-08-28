@@ -4,6 +4,7 @@ author: ProgrammerDan
 main: com.programmerdan.minecraft.addgun.AddGun
 website: http://www.devotedmc.com
 description: Adds guns to Minecraft. Fully configurable.
+softdepend: [DevotedPvP]
 commands:
  addgunhelp:
   description: Shows the commands useable for this plugin

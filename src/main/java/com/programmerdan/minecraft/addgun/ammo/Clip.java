@@ -293,6 +293,10 @@ public class Clip {
 			}
 		} else {
 			lore.add(ChatColor.RED + "Magazine Empty");
+			lore.add(ChatColor.GREEN + "Clip accepts bullets: ");
+			for (String bull : this.allowedBullets) {
+				lore.add(ChatColor.GREEN + " - " + ChatColor.GRAY + bull);
+			}
 		}
 
 		meta.setLore(lore);

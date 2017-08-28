@@ -2,6 +2,7 @@ package com.programmerdan.minecraft.addgun.listeners;
 
 import com.programmerdan.minecraft.addgun.AddGun;
 import com.programmerdan.minecraft.addgun.guns.Animation;
+import com.programmerdan.minecraft.addgun.guns.Recticle;
 
 import java.util.List;
 import java.util.Map;
@@ -40,7 +41,6 @@ public class PlayerListener implements Listener {
 	
 	private AddGun plugin;
 	
-	
 	/**
 	 * If the gun uses stability mechanics, tracks which players are sneaking and since when.
 	 */
@@ -76,10 +76,11 @@ public class PlayerListener implements Listener {
 	private Map<UUID, Animation> activeKnockbacks = new ConcurrentHashMap<>();
 	private final ScheduledExecutorService scheduler;
 	private Map<UUID, ScheduledFuture<?>> activeKnockbackTasks = new ConcurrentHashMap<>();
+	private Map<UUID, ScheduledFuture<?>> aimIndicators = new ConcurrentHashMap<>();
 	
 	public PlayerListener(FileConfiguration config) {
 		plugin = AddGun.getPlugin();
-		scheduler = Executors.newScheduledThreadPool(5);
+		scheduler = Executors.newScheduledThreadPool(10);
 		plugin.getServer().getPluginManager().registerEvents(this, plugin);
 	}
 
@@ -132,6 +133,16 @@ public class PlayerListener implements Listener {
 		if (event.isSneaking()) {
 			sneakingSince.computeIfAbsent(event.getPlayer().getUniqueId(), u -> {
 				//if (event.getPlayer().hasPermission("addgun.data")) { event.getPlayer().sendMessage(ChatColor.GOLD + " sneak started"); }
+				this.aimIndicators.compute(event.getPlayer().getUniqueId(), (p, track) -> {
+					if (track != null) {
+						try {
+							track.cancel(true);
+						} catch (Exception e) {
+							
+						}
+					}
+					return this.scheduler.scheduleAtFixedRate(new Recticle(event.getPlayer()), 0l, (long) Recticle.FRAME_DELAY, TimeUnit.MILLISECONDS);
+				});
 				return System.currentTimeMillis();
 			});
 		} else {
@@ -139,6 +150,14 @@ public class PlayerListener implements Listener {
 				event.getPlayer().sendMessage(ChatColor.GOLD + " sneak cleared");
 			}*/
 			sneakingSince.remove(event.getPlayer().getUniqueId());
+			this.aimIndicators.computeIfPresent(event.getPlayer().getUniqueId(), (p, track) -> {
+				try {
+					track.cancel(true);
+				} catch (Exception e) {
+					
+				}
+				return null;
+			});
 		}
 	}
 

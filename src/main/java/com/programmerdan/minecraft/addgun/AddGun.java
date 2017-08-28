@@ -26,6 +26,7 @@ import com.programmerdan.minecraft.addgun.commands.CommandHandler;
 import com.programmerdan.minecraft.addgun.guns.BasicGun;
 import com.programmerdan.minecraft.addgun.guns.Guns;
 import com.programmerdan.minecraft.addgun.guns.StandardGun;
+import com.programmerdan.minecraft.addgun.listeners.CompatListener;
 import com.programmerdan.minecraft.addgun.listeners.PlayerListener;
 
 public class AddGun  extends JavaPlugin {
@@ -56,6 +57,7 @@ public class AddGun  extends JavaPlugin {
 
 		registerPlayerListener();
 		registerCommandHandler();
+		registerCompatListener();
 	}
 	
 	@Override
@@ -121,6 +123,17 @@ public class AddGun  extends JavaPlugin {
 			this.severe("Failed to set up player event capture / handling", e);
 			this.setEnabled(false);
 		}	
+	}
+	
+	private void registerCompatListener() {
+		if (!this.isEnabled()) return;
+		try {
+			if (this.getServer().getPluginManager().isPluginEnabled("DevotedPvP")) {
+				this.getServer().getPluginManager().registerEvents( new CompatListener(), this);
+			}
+		} catch (Exception e) {
+			this.warning("Unable to start Compat listener, DevotedPvP not installed.");
+		}
 	}
 
 	private void config(FileConfiguration config) {

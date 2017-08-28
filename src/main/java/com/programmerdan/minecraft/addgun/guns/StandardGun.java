@@ -1784,4 +1784,61 @@ public class StandardGun implements BasicGun {
 		}
 		return toRepair;
 	}
+
+	/**
+	 * Just checks that the gun isn't doing something funky like have too much health
+	 * or too much ammo, or invalid ammo.
+	 * 
+	 * @return true if ok, false otherwise
+	 */
+	public boolean validGun(ItemStack gun) {
+		if (gun == null) return false;
+		if (!isGun(gun)) return false;
+		
+		Map<String, Object> data = getGunData(gun);
+		if (data == null || data.isEmpty()) return false;
+		
+		Object health = data.get("health");
+		if (health != null && health instanceof Integer) {
+			if ((((Integer) health) < 0) || ((Integer) health) > this.maxUses) return false;
+		}
+
+		AmmoType type = (AmmoType) data.get("type");
+		if (type == null) {
+			return false;
+		}
+		Bullet bullet = null;
+		switch(type) {
+		case BULLET:
+			if (!data.containsKey("ammo")) {
+				if (data.containsKey("rounds") && ((Integer) data.get("rounds") > 0)) return false; // no bullet but has ammo?
+			} else {
+				bullet = AddGun.getPlugin().getAmmo().getBullet((String) data.get("ammo"));
+	
+				if (bullet == null) return false;
+				
+				if (!data.containsKey("rounds") || (Integer) data.get("rounds") > this.maxAmmo || (Integer) data.get("rounds") < 0) return false;
+			}
+			break;
+		case CLIP:
+			if (!data.containsKey("clip")) {
+				if (data.containsKey("rounds") && ((Integer) data.get("rounds") > 0)) return false; // no clip but has ammo?
+			} else {
+				Clip clip = AddGun.getPlugin().getAmmo().getClip((String) data.get("clip"));
+			
+				if (data.containsKey("ammo")) { 
+					bullet = AddGun.getPlugin().getAmmo().getBullet((String) data.get("ammo"));
+					
+					if (bullet == null) return false;
+					
+					if (!data.containsKey("rounds") || (Integer) data.get("rounds") > clip.maxRounds(bullet.getName()) || (Integer) data.get("rounds") < 0) return false;
+				} else {
+					if (!data.containsKey("rounds") || (Integer) data.get("rounds") > this.maxAmmo || (Integer) data.get("rounds") < 0) return false;
+				}
+			}
+			break;
+		case INVENTORY:
+		}
+		return true;
+	}
 }

@@ -5,7 +5,7 @@
 	<groupId>com.programmerdan.minecraft</groupId>
 	<artifactId>addgun</artifactId>
 	<packaging>jar</packaging>
-	<version>0.0.2</version>
+	<version>0.1.0</version>
 	<name>AddGun</name>
 	<url>https://github.com/ProgrammerDan/AddGun</url>
 
@@ -117,6 +117,12 @@
 			<groupId>vg.civcraft.mc.civmodcore</groupId>
 			<artifactId>CivModCore</artifactId>
 			<version>1.6.0</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.biggestnerd.devotedpvp</groupId>
+			<artifactId>DevotedPvP</artifactId>
+			<version>1.2.2</version>
 			<scope>provided</scope>
 		</dependency>
 	</dependencies>
