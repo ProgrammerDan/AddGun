@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -15,6 +16,8 @@ import org.bukkit.inventory.ItemStack;
 
 import com.google.common.collect.Sets;
 import com.programmerdan.minecraft.addgun.AddGun;
+import com.programmerdan.minecraft.addgun.events.LoadClipEvent;
+import com.programmerdan.minecraft.addgun.events.LoadGunEvent;
 import com.programmerdan.minecraft.addgun.guns.StandardGun;
 
 /**
@@ -207,6 +210,11 @@ public class Bullets implements Listener {
 			if (cursorBullet != null) {
 				// load / swap event.
 				ItemStack[] outcome = currentClip.loadClip(current, cursorBullet, cursor.getAmount());
+				
+				LoadClipEvent clipEvent = new LoadClipEvent(currentClip, cursorBullet, cursor.getAmount(), event.getWhoClicked());
+				Bukkit.getServer().getPluginManager().callEvent(clipEvent);
+				if (clipEvent.isCancelled()) return;
+				
 				event.setCurrentItem(outcome[0]);
 				event.setCursor(outcome[1]); // why tf is this deprecated?!
 				event.setResult(Result.DENY);

@@ -54,6 +54,7 @@ import com.programmerdan.minecraft.addgun.AddGun;
 import com.programmerdan.minecraft.addgun.ammo.AmmoType;
 import com.programmerdan.minecraft.addgun.ammo.Bullet;
 import com.programmerdan.minecraft.addgun.ammo.Clip;
+import com.programmerdan.minecraft.addgun.events.FireGunEvent;
 import com.programmerdan.minecraft.addgun.listeners.PlayerListener;
 
 public class Guns implements Listener {
@@ -311,6 +312,11 @@ public class Guns implements Listener {
 					// based on their stillness and settledness.
 					double accuracy = computeAccuracyFor(gun, bulletType, player);
 					
+					FireGunEvent fireEvent = new FireGunEvent(gun, bulletType, player, accuracy);
+					Bukkit.getServer().getPluginManager().callEvent(fireEvent);
+					if (fireEvent.isCancelled()) return;
+					accuracy = fireEvent.getAccuracy();
+					
 					double offset = player.isSneaking() ? 1.2d : 1.35d;
 					Vector bbOff = player.getEyeLocation().getDirection().normalize();
 					bbOff.multiply(player.getWidth() / 2);
@@ -526,7 +532,7 @@ public class Guns implements Listener {
 			cursorBullet = AddGun.getPlugin().getAmmo().findBullet(cursor);
 			if (cursorClip != null || cursorBullet != null) {
 				// load / swap event.
-				ItemStack[] outcome = currentGun.loadAmmo(current, cursor);
+				ItemStack[] outcome = currentGun.loadAmmo(current, cursor, event.getWhoClicked());
 				event.setCurrentItem(outcome[0]);
 				event.setCursor(outcome[1]); // why tf is this deprecated?!
 				event.setResult(Result.DENY);

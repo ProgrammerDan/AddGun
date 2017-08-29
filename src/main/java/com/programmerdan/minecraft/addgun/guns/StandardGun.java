@@ -32,6 +32,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 import org.bukkit.inventory.EntityEquipment;
@@ -49,6 +50,7 @@ import com.programmerdan.minecraft.addgun.ArmorType;
 import com.programmerdan.minecraft.addgun.ammo.AmmoType;
 import com.programmerdan.minecraft.addgun.ammo.Bullet;
 import com.programmerdan.minecraft.addgun.ammo.Clip;
+import com.programmerdan.minecraft.addgun.events.LoadGunEvent;
 
 import net.minecraft.server.v1_12_R1.EntityProjectile;
 
@@ -850,8 +852,13 @@ public class StandardGun implements BasicGun {
 		final double trueFinalDamage = finalDamage;
 		//TODO: player states? custom shit? event?
 		Bukkit.getScheduler().runTask(AddGun.getPlugin(), new Runnable() {
+			@SuppressWarnings("deprecation")
 			@Override
 			public void run() {
+				hit.setLastDamageCause(new EntityDamageByEntityEvent(bullet, hit, DamageCause.PROJECTILE, trueFinalDamage));
+				try {
+					AddGun.getPlugin().getTagUtility().tag((LivingEntity) bullet.getShooter(), (LivingEntity) hit);
+				} catch(Exception e) {}
 				hit.damage(trueFinalDamage, bullet);
 			}
 		});
@@ -1173,7 +1180,7 @@ public class StandardGun implements BasicGun {
 	 * @param ammo the ammo to use (bullets or clips)
 	 * @return a 2 element array; element 0 is the gun, potentially modified. element 1 is the remaining ammo or null.
 	 */
-	public ItemStack[] loadAmmo(ItemStack gun, ItemStack ammo) {
+	public ItemStack[] loadAmmo(ItemStack gun, ItemStack ammo, HumanEntity player) {
 		if (gun == null || ammo == null) return new ItemStack[] {gun, ammo};
 		
 		Map<String, Object> gunData = getGunData(gun);
@@ -1187,6 +1194,11 @@ public class StandardGun implements BasicGun {
 				if (this.allBullets.contains(bullet.getName())) {
 					if (!gunData.containsKey("ammo")) { // unloaded! easy path
 						int load = Math.min(ammo.getAmount(), this.maxAmmo);
+						
+						LoadGunEvent event = new LoadGunEvent(this, null, bullet, ammo.getAmount() - load, player);
+						Bukkit.getServer().getPluginManager().callEvent(event);
+						if (event.isCancelled()) return new ItemStack[] {gun, ammo};
+						
 						gunData.clear();
 						gunData.put("ammo", bullet.getName());
 						gunData.put("rounds", load);
@@ -1200,6 +1212,11 @@ public class StandardGun implements BasicGun {
 						if (loadedBullet.equals(bullet)) { // same kind of bullet!
 							int currentLoad = (Integer) gunData.get("rounds");
 							int load = Math.min( currentLoad + ammo.getAmount(), this.maxAmmo);
+
+							LoadGunEvent event = new LoadGunEvent(this, null, bullet, currentLoad + ammo.getAmount() - this.maxAmmo, player);
+							Bukkit.getServer().getPluginManager().callEvent(event);
+							if (event.isCancelled()) return new ItemStack[] {gun, ammo};
+
 							gunData.clear();
 							gunData.put("rounds", load);
 							ammo.setAmount(currentLoad + ammo.getAmount() - this.maxAmmo);
@@ -1219,6 +1236,12 @@ public class StandardGun implements BasicGun {
 					if (!gunData.containsKey("clip")) { // unloaded! easy path
 						gunData.clear();
 						Bullet bullt = clip.getBulletType(ammo);
+						
+						LoadGunEvent event = new LoadGunEvent(this, clip, bullt, clip.getRounds(ammo), player);
+						Bukkit.getServer().getPluginManager().callEvent(event);
+						if (event.isCancelled()) return new ItemStack[] {gun, ammo};
+
+						
 						gunData.put("ammo", bullt == null ? null : bullt.getName());
 						gunData.put("clip", clip.getName());
 						gunData.put("rounds", clip.getRounds(ammo));
@@ -1236,8 +1259,13 @@ public class StandardGun implements BasicGun {
 								oldRounds = 0;
 							}
 
+							Bullet bullt = clip.getBulletType(ammo);
+							LoadGunEvent event = new LoadGunEvent(this, clip, bullt, clip.getRounds(ammo), player);
+							Bukkit.getServer().getPluginManager().callEvent(event);
+							if (event.isCancelled()) return new ItemStack[] {gun, ammo};
+							
 							gunData.clear();
-							gunData.put("ammo", clip.getBulletType(ammo).getName());
+							gunData.put("ammo", bullt.getName());
 							gunData.put("clip", clip.getName());
 							gunData.put("rounds", clip.getRounds(ammo));
 							gun = updateGunLore(updateGunData(gun, gunData));
