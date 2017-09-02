@@ -65,26 +65,29 @@ public class StandardGun implements BasicGun {
 
 	private static double[] protectionCurve = new double[] {
 		0.0d,
-		-0.25 * Math.log(1.0 / (1.0 + 1.0)),
-		-0.25 * Math.log(1.0 / (2.0 + 1.0)),
-		-0.25 * Math.log(1.0 / (3.0 + 1.0)),
-		-0.25 * Math.log(1.0 / (4.0 + 1.0)),
-		-0.25 * Math.log(1.0 / (5.0 + 1.0)),
-		-0.25 * Math.log(1.0 / (6.0 + 1.0)),
-		-0.25 * Math.log(1.0 / (7.0 + 1.0)),
-		-0.25 * Math.log(1.0 / (8.0 + 1.0)),
-		-0.25 * Math.log(1.0 / (9.0 + 1.0)),
-		-0.25 * Math.log(1.0 / (10.0 + 1.0)),
-		-0.25 * Math.log(1.0 / (11.0 + 1.0)),
-		-0.25 * Math.log(1.0 / (12.0 + 1.0)),
-		-0.25 * Math.log(1.0 / (13.0 + 1.0)),
-		-0.25 * Math.log(1.0 / (14.0 + 1.0)),
-		-0.25 * Math.log(1.0 / (15.0 + 1.0)),
+		-0.5 * Math.log(1.0 / (1.0 + 1.0)),
+		-0.5 * Math.log(1.0 / (2.0 + 1.0)),
+		-0.5 * Math.log(1.0 / (3.0 + 1.0)),
+		-0.5 * Math.log(1.0 / (4.0 + 1.0)),
+		-0.5 * Math.log(1.0 / (5.0 + 1.0)),
+		-0.5 * Math.log(1.0 / (6.0 + 1.0)),
+		-0.5 * Math.log(1.0 / (7.0 + 1.0)),
+		-0.5 * Math.log(1.0 / (8.0 + 1.0)),
+		-0.5 * Math.log(1.0 / (9.0 + 1.0)),
+		-0.5 * Math.log(1.0 / (10.0 + 1.0)),
+		-0.5 * Math.log(1.0 / (11.0 + 1.0)),
+		-0.5 * Math.log(1.0 / (12.0 + 1.0)),
+		-0.5 * Math.log(1.0 / (13.0 + 1.0)),
+		-0.5 * Math.log(1.0 / (14.0 + 1.0)),
+		-0.5 * Math.log(1.0 / (15.0 + 1.0)),
 	};
 	
-	private static double baseProjectileProtection = 1.0d;
-	private static double baseEnvironmentProtection = 0.25d;
-	private static double baseUnbreakingProtection = 0.33d;
+	private static double baseProjectileProtection = 1.25d;
+	private static double baseEnvironmentProtection = 0.66d;
+	private static double baseUnbreakingProtection = 0.75d;
+	private static double varianceFactor = 1.2d;
+	private static double expansionFactor = 1.2d;
+	private static double finalFitFactor = 2.0d;
 	
 	/**
 	 * Is this gun enabled?
@@ -125,6 +128,16 @@ public class StandardGun implements BasicGun {
 	 * Internal avg V / t
 	 */
 	private double avgSpeed = (maxSpeed + minSpeed) / 2.0;
+	
+	/**
+	 * Internal variance min compute
+	 */
+	private double varianceMin = -1.0d;
+	
+	/**
+	 * Internal variance max compute
+	 */
+	private double varianceMax = 1.0d;
 	
 	/**
 	 * Max times the gun can be fired before repair.
@@ -319,6 +332,9 @@ public class StandardGun implements BasicGun {
 			this.minSpeed = config.getDouble("speed.min", minSpeed);
 			this.maxSpeed = config.getDouble("speed.max", maxSpeed);
 			this.avgSpeed = (this.minSpeed + this.maxSpeed) / 2;
+			
+			this.varianceMin = (this.minSpeed - this.avgSpeed) / ((this.maxSpeed - this.minSpeed + 1) / 4.0d) * StandardGun.varianceFactor;
+			this.varianceMax = (this.maxSpeed - this.avgSpeed) / ((this.maxSpeed - this.minSpeed + 1) / 4.0d) * StandardGun.varianceFactor;
 			
 			this.bluntDamage = config.getDouble("damage.blunt", bluntDamage);
 			this.maxMissRadius = config.getDouble("miss.radius.max", maxMissRadius);
@@ -649,10 +665,16 @@ public class StandardGun implements BasicGun {
 		
 		Vector speed = bullet.getVelocity();
 		double absVelocity = speed.length();
-		// speed is randomly uniform between min and max, we now approximate it into a gaussian distribution using a shaped sigmoid
-		double variance = (absVelocity - (this.avgSpeed)) / ((this.maxSpeed - this.minSpeed + 1) / 4.0); // variance is now "centered" on average speed, in range [-avg, +avg]
+		// speed is a uniform random variable between min and max, we now approximate it into a gaussian distribution using two shaped sigmoids
+		double variance = (absVelocity - this.avgSpeed) / ((this.maxSpeed - this.minSpeed + 1) / 4.0);
+		double varMin = variance * StandardGun.expansionFactor + this.varianceMin;
+		double varMax = variance * StandardGun.expansionFactor + this.varianceMax;
+		double lefttail = (twosigma/2) * (1 + (varMin / Math.sqrt(1 + (varMin * varMin))));
+		double righttail = (twosigma/2) * (1 + (varMax / Math.sqrt(1 + (varMax * varMax))));
 		
-		double baseRealDamage = (twosigma / 4) * (1 + (variance / Math.sqrt( 1 + (variance* variance)))) + median;
+		// compose the two curves, forming an accentuated guassian distribution (more heavily center weighted then a true normal curve)
+		double baseRealDamage = median + (lefttail + righttail - twosigma) * StandardGun.finalFitFactor;
+		
 		double originalBaseDamage = baseRealDamage;
 
 		double finalDamage = baseRealDamage;
@@ -734,7 +756,7 @@ public class StandardGun implements BasicGun {
 			int unbLevel = shield.getEnchantmentLevel(Enchantment.DURABILITY);
 			
 			// Basically, unbreaking reduces the amount of durability damage that the armor will sustain 
-			double unbReduction = (1.0 + StandardGun.baseUnbreakingProtection * StandardGun.protectionCurve[unbLevel]);
+			double unbReduction = (1.0 - StandardGun.baseUnbreakingProtection * StandardGun.protectionCurve[unbLevel]);
 			double finalDuraDamage = baseRealDamage * (1.0 - (1.0 - bulletType.getArmorDamage(ArmorType.SHIELD)) * unbReduction);
 			if (shield.getDurability() < finalDuraDamage) {
 				// broken.
