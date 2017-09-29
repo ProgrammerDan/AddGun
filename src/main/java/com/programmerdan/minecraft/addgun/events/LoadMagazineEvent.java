@@ -4,27 +4,27 @@ import org.bukkit.entity.HumanEntity;
 import org.bukkit.event.HandlerList;
 
 import com.programmerdan.minecraft.addgun.ammo.Bullet;
-import com.programmerdan.minecraft.addgun.ammo.Clip;
+import com.programmerdan.minecraft.addgun.ammo.Magazine;
 
-public class LoadClipEvent extends GunEvent {
+public class LoadMagazineEvent extends GunEvent {
 	private static final HandlerList handlers = new HandlerList();
 
-	private final Clip clip;
+	private final Magazine magazine;
 	private final Bullet bullet;
 	private final int rounds;
 	private final HumanEntity player;
 	
-	public LoadClipEvent(Clip clip, Bullet bullet, int amount, HumanEntity player) {
+	public LoadMagazineEvent(Magazine magazine, Bullet bullet, int amount, HumanEntity player) {
 		super(false);
 		
-		this.clip = clip;
+		this.magazine = magazine;
 		this.bullet = bullet;
 		this.rounds = amount;
 		this.player = player;
 	}
 	
-	public Clip getClip() {
-		return this.clip;
+	public Magazine getMagazine() {
+		return this.magazine;
 	}
 	
 	public Bullet getBullet() {
@@ -41,7 +41,7 @@ public class LoadClipEvent extends GunEvent {
 	
 	@Override
 	public HandlerList getHandlers() {
-		return LoadClipEvent.handlers;
+		return LoadMagazineEvent.handlers;
 	}
 
 	public static HandlerList getHandlerList() {

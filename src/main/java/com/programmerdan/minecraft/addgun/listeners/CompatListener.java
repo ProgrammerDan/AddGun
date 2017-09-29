@@ -9,7 +9,7 @@ import org.bukkit.event.Listener;
 import com.biggestnerd.devotedpvp.ItemSafeEvent;
 import com.programmerdan.minecraft.addgun.AddGun;
 import com.programmerdan.minecraft.addgun.ammo.Bullet;
-import com.programmerdan.minecraft.addgun.ammo.Clip;
+import com.programmerdan.minecraft.addgun.ammo.Magazine;
 import com.programmerdan.minecraft.addgun.guns.StandardGun;
 
 import org.bukkit.inventory.ItemStack;
@@ -34,10 +34,10 @@ public class CompatListener implements Listener {
 			return;
 		}
 		
-		Clip clip = plugin.getAmmo().findClip(item);
+		Magazine mag = plugin.getAmmo().findMagazine(item);
 		
-		// TODO: validclip check
-		if (clip != null && item.getAmount() == 1) {
+		// TODO: validmag check
+		if (mag != null && item.getAmount() == 1) {
 			safe.setValid();
 			return;
 		}

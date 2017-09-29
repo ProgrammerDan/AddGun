@@ -14,7 +14,7 @@ global:
    time: 18000
    # Reset timeout and limits on death
    reset: true
-  clip:
+  magazine:
    give: true
   bullet:
    give: true
@@ -617,8 +617,8 @@ bullets:
    HEAD: # headshot!
     avg: 5
     spread: 0
-clips:
- Pistol Clip:
+magazines:
+ Pistol Magazine:
   example:
     ==: org.bukkit.inventory.ItemStack
     type: END_ROD
@@ -626,8 +626,8 @@ clips:
     meta:
      ==: ItemMeta
      meta-type: UNSPECIFIC
-     display-name: Pistol Clip
-     lore: ["Small Pistol Clip"]
+     display-name: Pistol Magazine
+     lore: ["Small Pistol Magazine"]
   bullets:
    FMJ Bullet: 10
  Pistol Drum:
@@ -639,10 +639,10 @@ clips:
      ==: ItemMeta
      meta-type: UNSPECIFIC
      display-name: Pistol Drum
-     lore: ["Pistol Drum Clip"]
+     lore: ["Pistol Drum Magazine"]
   bullets:
    FMJ Bullet: 25
- Small Pistol Clip:
+ Small Pistol Magazine:
   example:
     ==: org.bukkit.inventory.ItemStack
     type: IRON_INGOT
@@ -650,13 +650,13 @@ clips:
     meta:
      ==: ItemMeta
      meta-type: UNSPECIFIC
-     display-name: Small Pistol Clip
-     lore: ["Small Pistol Clip"]
+     display-name: Small Pistol Magazine
+     lore: ["Small Pistol Magazine"]
   bullets:
    FMJ Bullet: 6
    Incendiary Bullet: 4
    Exploding Bullet: 4 
- Rifle Clip:
+ Rifle Magazine:
   example:
     ==: org.bukkit.inventory.ItemStack
     type: END_ROD
@@ -664,8 +664,8 @@ clips:
     meta:
      ==: ItemMeta
      meta-type: UNSPECIFIC
-     display-name: Rifle Clip
-     lore: ["Medium Rifle Clip"]
+     display-name: Rifle Magazine
+     lore: ["Medium Rifle Magazine"]
   bullets:
    FMJ Bullet: 32
    Incendiary Bullet: 32
@@ -679,12 +679,12 @@ clips:
      ==: ItemMeta
      meta-type: UNSPECIFIC
      display-name: Rifle Drum
-     lore: ["Rifle Drum Clip"]
+     lore: ["Rifle Drum Magazine"]
   bullets:
    FMJ Bullet: 64
    Incendiary Bullet: 64
    Exploding Bullet: 64
- Sniper Clip:
+ Sniper Magazine:
   example:
     ==: org.bukkit.inventory.ItemStack
     type: END_ROD
@@ -692,8 +692,8 @@ clips:
     meta:
      ==: ItemMeta
      meta-type: UNSPECIFIC
-     display-name: Sniper Clip
-     lore: ["Sniper Rifle Clip"]
+     display-name: Sniper Magazine
+     lore: ["Sniper Rifle Magazine"]
   bullets:
    FMJ Bullet: 10
    Incendiary Bullet: 10
@@ -948,8 +948,8 @@ guns:
      lore: ["Borchardt Pistol"]  
   ammo:
    xp: 0
-   clips:
-   - Pistol Clip
+   magazines:
+   - Pistol Magazine
   health:
    max: 1000
    misfire:
@@ -990,10 +990,10 @@ guns:
      lore: ["9mm Pistol"]  
   ammo:
    xp: 0
-   clips:
-   - Pistol Clip
+   magazines:
+   - Pistol Magazine
    - Pistol Drum
-   - Small Pistol Clip
+   - Small Pistol Magazine
   health:
    max: 1500
    misfire:
@@ -1078,8 +1078,8 @@ guns:
      lore: ["AK-47"]
   ammo:
    xp: 0
-   clips:
-   - Rifle Clip
+   magazines:
+   - Rifle Magazine
    - Rifle Drum
   health:
    max: 500
@@ -1121,8 +1121,8 @@ guns:
      lore: ["Rifle, Caliber 5.56 mm, M16"]
   ammo:
    xp: 0
-   clips:
-   - Rifle Clip
+   magazines:
+   - Rifle Magazine
    - Rifle Drum
   health:
    max: 3000
@@ -1164,8 +1164,8 @@ guns:
      lore: ["M4A1 Carbine"]
   ammo:
    xp: 0
-   clips:
-   - Rifle Clip
+   magazines:
+   - Rifle Magazine
    - Rifle Drum
   health:
    max: 3500
@@ -1207,8 +1207,8 @@ guns:
      lore: ["Barrett M82"]
   ammo:
    xp: 0
-   clips:
-   - Sniper Clip
+   magazines:
+   - Sniper Magazine
   health:
    max: 2000
    misfire:

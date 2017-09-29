@@ -16,7 +16,7 @@ import org.bukkit.inventory.ItemStack;
 
 import com.google.common.collect.Sets;
 import com.programmerdan.minecraft.addgun.AddGun;
-import com.programmerdan.minecraft.addgun.events.LoadClipEvent;
+import com.programmerdan.minecraft.addgun.events.LoadMagazineEvent;
 import com.programmerdan.minecraft.addgun.events.LoadGunEvent;
 import com.programmerdan.minecraft.addgun.guns.StandardGun;
 
@@ -24,7 +24,7 @@ import com.programmerdan.minecraft.addgun.guns.StandardGun;
  * Intent here is this class holds configurations of bullets and provides easy accessors.
  * Each gun will have a list of bullets that it can use.
  * 
- * Bullets and clips are constructed from config.
+ * Bullets and magazines are constructed from config.
  * 
  * @author ProgrammerDan
  *
@@ -33,15 +33,15 @@ public class Bullets implements Listener {
 
 	private Map<String, Bullet> tagMap = new ConcurrentHashMap<>();
 	
-	private Map<String, Clip> clipTagMap = new ConcurrentHashMap<>();
+	private Map<String, Magazine> magazineTagMap = new ConcurrentHashMap<>();
 	
 	private Map<String, Bullet> nameMap = new ConcurrentHashMap<>();
 	
-	private Map<String, Clip> clipMap = new ConcurrentHashMap<>();
+	private Map<String, Magazine> magazineMap = new ConcurrentHashMap<>();
 	
 	private Map<Material, Set<Bullet>> map = new ConcurrentHashMap<>();
 	
-	private Map<Material, Set<Clip>> clips = new ConcurrentHashMap<>();
+	private Map<Material, Set<Magazine>> magazines = new ConcurrentHashMap<>();
 	
 	/**
 	 * Register a bullet. Handles all index mapping.
@@ -65,24 +65,24 @@ public class Bullets implements Listener {
 	}
 	
 	/**
-	 * Registers a clip. Handles all index mapping.
+	 * Registers a magazine. Handles all index mapping.
 	 * 
-	 * @param clip the clip to regsiter
+	 * @param magazine the magazine to regsiter
 	 */
-	public void registerClip(Clip clip) {
-		if (clip == null) return;
+	public void registerMagazine(Magazine magazine) {
+		if (magazine == null) return;
 		
-		clipMap.put(clip.getName(), clip);
+		magazineMap.put(magazine.getName(), magazine);
 		
-		clips.compute(clip.getMaterialType(), (k, s) -> {
+		magazines.compute(magazine.getMaterialType(), (k, s) -> {
 			if (s == null) {
 				s = Sets.newConcurrentHashSet();
 			}
-			s.add(clip);
+			s.add(magazine);
 			return s;
 		});
 		
-		clipTagMap.put(clip.getTag(), clip);
+		magazineTagMap.put(magazine.getTag(), magazine);
 	}
 	
 	/**
@@ -124,50 +124,50 @@ public class Bullets implements Listener {
 	}
 	
 	/**
-	 * Using a supplied item, identifies which clip, or if none, null.
+	 * Using a supplied item, identifies which magazine, or if none, null.
 	 * 
-	 * @param clip the ItemStack to check
-	 * @return a Clip or null.
+	 * @param magazine the ItemStack to check
+	 * @return a Magazine or null.
 	 */
-	public Clip findClip(ItemStack clip) {
-		if (clip == null) return null;
-		Set<Clip> set = clips.get(clip.getType());
+	public Magazine findMagazine(ItemStack magazine) {
+		if (magazine == null) return null;
+		Set<Magazine> set = magazines.get(magazine.getType());
 		if (set == null) return null;
 		// TODO: Can we do better?
-		for (Clip sclip : set) {
-			if (sclip.isClip(clip)) {
-				return sclip;
+		for (Magazine smag : set) {
+			if (smag.isMagazine(magazine)) {
+				return smag;
 			}
 		}
 		return null;
 	}
 
 	/**
-	 * Using the provided name, gets the clip, or null.
-	 * @param name the name of the clip
-	 * @return the Clip or null if no match
+	 * Using the provided name, gets the magazine, or null.
+	 * @param name the name of the magazine
+	 * @return the Magazine or null if no match
 	 */
-	public Clip getClip(String name) {
-		return clipMap.get(name);
+	public Magazine getMagazine(String name) {
+		return magazineMap.get(name);
 	}
 	
 	/**
-	 * Using the provided loretag, gets the clip, or null.
+	 * Using the provided loretag, gets the magazine, or null.
 	 * 
-	 * @param tag the loretag of the clip
-	 * @return the Clip or null if no match
+	 * @param tag the loretag of the magazine
+	 * @return the Magazine or null if no match
 	 */
-	public Clip getClipByTag(String tag) {
-		return clipTagMap.get(tag);
+	public Magazine getMagazineByTag(String tag) {
+		return magazineTagMap.get(tag);
 	}
 	
 	/**
-	 * Returns a representation of all the clips configured by names
+	 * Returns a representation of all the magazines configured by names
 	 * 
-	 * @return a set of clip names
+	 * @return a set of magazine names
 	 */
-	public Set<String> allClipNames() {
-		return clipMap.keySet();
+	public Set<String> allMagazineNames() {
+		return magazineMap.keySet();
 	}
 	
 	/**
@@ -186,7 +186,7 @@ public class Bullets implements Listener {
 	 * 
 	 */
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
-	public void interactClipEvent(InventoryClickEvent event) {
+	public void interactMagazineEvent(InventoryClickEvent event) {
 		if (!(InventoryAction.SWAP_WITH_CURSOR.equals(event.getAction()) || 
 				InventoryAction.PICKUP_ALL.equals(event.getAction()) || 
 				InventoryAction.PICKUP_HALF.equals(event.getAction()) || 
@@ -200,8 +200,8 @@ public class Bullets implements Listener {
 		ItemStack current = event.getCurrentItem();
 		ItemStack cursor = event.getCursor();
 		
-		Clip currentClip = findClip(current);
-		if (currentClip == null) return;
+		Magazine currentMag = findMagazine(current);
+		if (currentMag == null) return;
 		
 		Bullet cursorBullet = null;
 		
@@ -209,11 +209,11 @@ public class Bullets implements Listener {
 			cursorBullet = findBullet(cursor);
 			if (cursorBullet != null) {
 				// load / swap event.
-				ItemStack[] outcome = currentClip.loadClip(current, cursorBullet, cursor.getAmount());
+				ItemStack[] outcome = currentMag.loadMagazine(current, cursorBullet, cursor.getAmount());
 				
-				LoadClipEvent clipEvent = new LoadClipEvent(currentClip, cursorBullet, cursor.getAmount(), event.getWhoClicked());
-				Bukkit.getServer().getPluginManager().callEvent(clipEvent);
-				if (clipEvent.isCancelled()) return;
+				LoadMagazineEvent magEvent = new LoadMagazineEvent(currentMag, cursorBullet, cursor.getAmount(), event.getWhoClicked());
+				Bukkit.getServer().getPluginManager().callEvent(magEvent);
+				if (magEvent.isCancelled()) return;
 				
 				event.setCurrentItem(outcome[0]);
 				event.setCursor(outcome[1]); // why tf is this deprecated?!
@@ -221,7 +221,7 @@ public class Bullets implements Listener {
 			}
 		} else {
 			// unload event.
-			ItemStack[] outcome = currentClip.unloadClip(current);
+			ItemStack[] outcome = currentMag.unloadMagazine(current);
 			event.setCurrentItem(outcome[0]);
 			event.setCursor(outcome[1]); // why tf is this deprecated?!
 			event.setResult(Result.DENY);
@@ -229,10 +229,10 @@ public class Bullets implements Listener {
 	}
 	
 	/**
-	 * Quick check if there are any clips registered
+	 * Quick check if there are any magazines registered
 	 * @return true if yes, otherwise false
 	 */
-	public boolean hasClips() {
-		return !this.clipMap.isEmpty();
+	public boolean hasMagazines() {
+		return !this.magazineMap.isEmpty();
 	}
 }

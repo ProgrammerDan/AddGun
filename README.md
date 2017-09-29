@@ -10,20 +10,20 @@ If you enable them in config, players can get guns using the following simple co
 
 **/gun** -- presents a menu with all configured guns
 
-**/clip** -- some guns aren't loaded directly, but via "clips" or magazines of bullets, this command brings up a menu to pick 'em
+**/magazine** -- some guns aren't loaded directly, but via "magazines" of bullets, this command brings up a menu to pick 'em
 
 **/bullet** -- guns need bullets to fire, brings up a menu showing all configured bullets.
 
 ### Loading
 -----------
 
-To load bullets into guns or clips, pick up the bullets. While holding them, right click the clip, or gun, as indicated.
+To load bullets into guns or magazines, pick up the bullets. While holding them, right click the magazine, or gun, as indicated.
 
-Pay attention to the lore on the gun / clip -- it'll tell you if it can hold the bullets you've picked up or not.
+Pay attention to the lore on the gun / magazine -- it'll tell you if it can hold the bullets you've picked up or not.
 
-To load clips into guns, pick up the clip, and right click the gun. If a clip is already loaded, it will be swapped out with the one you are holding.
+To load magazines into guns, pick up the magazine, and right click the gun. If a magazine is already loaded, it will be swapped out with the one you are holding.
 
-If you've "locked" a clip to a particular bullet type, but the clip is now empty, right click the clip with nothing in your hand, to "free it" for other
+If you've "locked" a magazine to a particular bullet type, but the magazine is now empty, right click the magazine with nothing in your hand, to "free it" for other
 kinds of bullets.
 
 ### Repair

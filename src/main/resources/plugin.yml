@@ -11,7 +11,7 @@ commands:
   usage: |
    /giveselfgun <gun>
    /giveselfbullet <bullet> [<amount>]
-   /giveselfclip <clip>
+   /giveselfmagazine <magazine>
    /repairselfgun
   aliases: gunhelp
   permission: addgun.self
@@ -21,7 +21,7 @@ commands:
    The following are commands available for use:
    /givegun <player> <gun>
    /givebullet <player> <bullet> [<amount>]
-   /giveclip <player> <clip>
+   /givemagazine <player> <magazine>
    /repairgun <player>
   aliases: agun
   permission: addgun.*
@@ -37,10 +37,10 @@ commands:
    /<command> <player> <bullet> <amount>
   aliases: ag.gb
   permission: addgun.give
- giveclip:
-  description: Gives player a clip for a weapon
+ givemagazine:
+  description: Gives player a magazine for a weapon
   usage: | 
-   /<command> <player> <clip>
+   /<command> <player> <magazine>
   aliases: ag.gc
   permission: addgun.give
  repairgun:
@@ -61,11 +61,11 @@ commands:
    /<command> <bullet>
   aliases: bullet
   permission: addgun.self
- giveselfclip:
-  description: Give yourself ammo clips.
+ giveselfmagazine:
+  description: Give yourself ammo magazines.
   usage: |
-   /<command> <clip>
-  aliases: [gclip, clip]
+   /<command> <magazine>
+  aliases: [gmagazine, magazine]
   permission: addgun.self
  repairselfgun:
   description: Fix the gun you are holding.

@@ -49,7 +49,7 @@ import com.programmerdan.minecraft.addgun.AddGun;
 import com.programmerdan.minecraft.addgun.ArmorType;
 import com.programmerdan.minecraft.addgun.ammo.AmmoType;
 import com.programmerdan.minecraft.addgun.ammo.Bullet;
-import com.programmerdan.minecraft.addgun.ammo.Clip;
+import com.programmerdan.minecraft.addgun.ammo.Magazine;
 import com.programmerdan.minecraft.addgun.events.LoadGunEvent;
 
 import net.minecraft.server.v1_12_R1.EntityProjectile;
@@ -110,9 +110,9 @@ public class StandardGun implements BasicGun {
 	private List<String> allBullets = null;
 	
 	/**
-	 * All the valid clips that can be used with this gun, if it is loaded via clips.
+	 * All the valid magazines that can be used with this gun, if it is loaded via magazines.
 	 */
-	private List<String> allClips = null;
+	private List<String> allMagazines = null;
 	
 	/**
 	 * max V in meters (blocks) / t -- this is gun's intrinsic, could be modified by bullets.
@@ -198,13 +198,13 @@ public class StandardGun implements BasicGun {
 	private String bulletTag;
 	
 	/**
-	 * Does this gun use clips, bullets, or autofeed from inventory to fire?
+	 * Does this gun use magazines, bullets, or autofeed from inventory to fire?
 	 */
 	private AmmoType ammoSource = AmmoType.INVENTORY;
 	
 	/**
 	 * If BULLET, determines the max bullets that can be loaded into the weapon.
-	 * CLIP is always 1, and INVENTORY is 0.
+	 * MAGAZINE is always 1, and INVENTORY is 0.
 	 */
 	private int maxAmmo = 0;
 	
@@ -306,18 +306,18 @@ public class StandardGun implements BasicGun {
 				if (this.allBullets.isEmpty()) {
 					throw new IllegalArgumentException("Gun is defined to use bullets, but no valid bullets defined!");
 				}
-			} else if (config.contains("ammo.clips")) {
-				this.allClips = new ArrayList<String>();
-				this.ammoSource = AmmoType.CLIP;
-				for (String clip: config.getStringList("ammo.clips")) {
-					if (AddGun.getPlugin().getAmmo().getClip(clip) != null) {
-						this.allClips.add(clip);
+			} else if (config.contains("ammo.magazines")) {
+				this.allMagazines = new ArrayList<String>();
+				this.ammoSource = AmmoType.MAGAZINE;
+				for (String magazine: config.getStringList("ammo.magazines")) {
+					if (AddGun.getPlugin().getAmmo().getMagazine(magazine) != null) {
+						this.allMagazines.add(magazine);
 					} else {
-						AddGun.getPlugin().warning("Could not find clip " + clip + " for gun " + this.name);
+						AddGun.getPlugin().warning("Could not find magazine " + magazine + " for gun " + this.name);
 					}
 				}
-				if (this.allClips.isEmpty()) {
-					throw new IllegalArgumentException("Gun is defined to use clips, but no valid clip defined!");
+				if (this.allMagazines.isEmpty()) {
+					throw new IllegalArgumentException("Gun is defined to use magazines, but no valid magazine defined!");
 				}
 			} else {
 				AddGun.getPlugin().warning("Intentional or otherwise, gun " + this.name + " is either an energy weapon or free to use.");
@@ -458,8 +458,8 @@ public class StandardGun implements BasicGun {
 		this.bluntDamage = bluntDamage;
 	}
 
-	public boolean isUsesClips() {
-		return AmmoType.CLIP.equals(this.ammoSource);
+	public boolean isUsesMagazines() {
+		return AmmoType.MAGAZINE.equals(this.ammoSource);
 	}
 
 	public boolean isUsesBullets() {
@@ -1065,7 +1065,7 @@ public class StandardGun implements BasicGun {
 	}
 	
 	/**
-	 * Checks if this gun has bullets / clips with bullets
+	 * Checks if this gun has bullets / magazines with bullets
 	 * 
 	 * @param toCheck Confirms that object has gun nbt, otherwise Does _not_ confirm if gun, just checks for ammo signals.
 	 * @return true if ammo found, false otherwise. Does not check if ammo works or not.
@@ -1111,7 +1111,7 @@ public class StandardGun implements BasicGun {
 	}
 	
 	/**
-	 * Gets the currently loaded Bullet type, regardless of clip or no clip
+	 * Gets the currently loaded Bullet type, regardless of magazine or no magazine
 	 * 
 	 * @param toCheck the gun to check
 	 * @return the ammo type, or null if unloaded
@@ -1134,7 +1134,7 @@ public class StandardGun implements BasicGun {
 	}
 	
 	/**
-	 * Returns a 2 element array -- element 0 is the gun, possibly modified, element 1 is the ammo/clip if any.
+	 * Returns a 2 element array -- element 0 is the gun, possibly modified, element 1 is the ammo/magazine if any.
 	 * 
 	 * @param gun the gun to remove ammo from
 	 * @return the gun and ammo if any, as a 2 element array
@@ -1163,20 +1163,20 @@ public class StandardGun implements BasicGun {
 			
 			gunData.put("ammo", null);
 			break;
-		case CLIP:
-			if (!gunData.containsKey("clip")) return new ItemStack[] {gun, null};
+		case MAGAZINE:
+			if (!gunData.containsKey("magazine")) return new ItemStack[] {gun, null};
 			
-			Clip clip = AddGun.getPlugin().getAmmo().getClip((String) gunData.get("clip"));
+			Magazine magazine = AddGun.getPlugin().getAmmo().getMagazine((String) gunData.get("magazine"));
 			
 			if (gunData.containsKey("ammo")) { 
 				bullet = AddGun.getPlugin().getAmmo().getBullet((String) gunData.get("ammo"));
 				if ((Integer) gunData.get("rounds") > 0) {
-					ammo = clip.getClipItem(bullet, (Integer) gunData.get("rounds"));
+					ammo = magazine.getMagazineItem(bullet, (Integer) gunData.get("rounds"));
 				} else {
-					ammo = clip.getClipItem(bullet, 0);
+					ammo = magazine.getMagazineItem(bullet, 0);
 				}
 			} else {
-				ammo = clip.getClipItem(null, 0);
+				ammo = magazine.getMagazineItem(null, 0);
 			}
 			break;
 		case INVENTORY:
@@ -1185,7 +1185,7 @@ public class StandardGun implements BasicGun {
 		}
 		gunData.clear();
 		gunData.put("ammo", null);
-		gunData.put("clip", null);
+		gunData.put("magazine", null);
 		gunData.put("rounds", Integer.valueOf(0));
 		
 		gun = updateGunLore(updateGunData(gun, gunData));
@@ -1196,10 +1196,10 @@ public class StandardGun implements BasicGun {
 	/**
 	 * Attempts to load the gun with ammo, based on ItemStacks. If the gun is already loaded, what happens depends
 	 * a lot on what's in the gun already. If the ammo being presented is the same type, it'll "top off" the load.
-	 * If the gun is loaded with a clip, and a clip is presented and valid, it'll swap out the clip.
+	 * If the gun is loaded with a magazine, and a magazine is presented and valid, it'll swap out the magazine.
 	 * 
 	 * @param gun the gun to load
-	 * @param ammo the ammo to use (bullets or clips)
+	 * @param ammo the ammo to use (bullets or magazines)
 	 * @return a 2 element array; element 0 is the gun, potentially modified. element 1 is the remaining ammo or null.
 	 */
 	public ItemStack[] loadAmmo(ItemStack gun, ItemStack ammo, HumanEntity player) {
@@ -1251,22 +1251,22 @@ public class StandardGun implements BasicGun {
 				}
 			}
 			break;
-		case CLIP:
-			Clip clip = AddGun.getPlugin().getAmmo().findClip(ammo);
-			if (clip != null) { // else, takes bullets, but something else was offered.
-				if (this.allClips.contains(clip.getName())) {
-					if (!gunData.containsKey("clip")) { // unloaded! easy path
+		case MAGAZINE:
+			Magazine magazine = AddGun.getPlugin().getAmmo().findMagazine(ammo);
+			if (magazine != null) { // else, takes bullets, but something else was offered.
+				if (this.allMagazines.contains(magazine.getName())) {
+					if (!gunData.containsKey("magazine")) { // unloaded! easy path
 						gunData.clear();
-						Bullet bullt = clip.getBulletType(ammo);
+						Bullet bullt = magazine.getBulletType(ammo);
 						
-						LoadGunEvent event = new LoadGunEvent(this, clip, bullt, clip.getRounds(ammo), player);
+						LoadGunEvent event = new LoadGunEvent(this, magazine, bullt, magazine.getRounds(ammo), player);
 						Bukkit.getServer().getPluginManager().callEvent(event);
 						if (event.isCancelled()) return new ItemStack[] {gun, ammo};
 
 						
 						gunData.put("ammo", bullt == null ? null : bullt.getName());
-						gunData.put("clip", clip.getName());
-						gunData.put("rounds", clip.getRounds(ammo));
+						gunData.put("magazine", magazine.getName());
+						gunData.put("rounds", magazine.getRounds(ammo));
 						ammo.setAmount(ammo.getAmount() - 1);
 						if (ammo.getAmount() <= 0) {
 							ammo = null;
@@ -1275,24 +1275,24 @@ public class StandardGun implements BasicGun {
 					} else { //loaded!
 						if (ammo.getAmount() == 1) { // we can swap!
 							Bullet oldBullet = AddGun.getPlugin().getAmmo().getBullet((String) gunData.get("ammo"));
-							Clip oldClip = AddGun.getPlugin().getAmmo().getClip((String) gunData.get("clip"));
+							Magazine oldMag = AddGun.getPlugin().getAmmo().getMagazine((String) gunData.get("magazine"));
 							Integer oldRounds = (Integer) gunData.get("rounds");
 							if (oldRounds <= 0) {
 								oldRounds = 0;
 							}
 
-							Bullet bullt = clip.getBulletType(ammo);
-							LoadGunEvent event = new LoadGunEvent(this, clip, bullt, clip.getRounds(ammo), player);
+							Bullet bullt = magazine.getBulletType(ammo);
+							LoadGunEvent event = new LoadGunEvent(this, magazine, bullt, magazine.getRounds(ammo), player);
 							Bukkit.getServer().getPluginManager().callEvent(event);
 							if (event.isCancelled()) return new ItemStack[] {gun, ammo};
 							
 							gunData.clear();
 							gunData.put("ammo", bullt.getName());
-							gunData.put("clip", clip.getName());
-							gunData.put("rounds", clip.getRounds(ammo));
+							gunData.put("magazine", magazine.getName());
+							gunData.put("rounds", magazine.getRounds(ammo));
 							gun = updateGunLore(updateGunData(gun, gunData));
 
-							ammo = oldClip.getClipItem(oldBullet, oldRounds);
+							ammo = oldMag.getMagazineItem(oldBullet, oldRounds);
 						} // else we do nothing, we can't clean swap.
 					}
 				}
@@ -1373,7 +1373,7 @@ public class StandardGun implements BasicGun {
 					} else { // empty.
 						if (AmmoType.BULLET.equals((AmmoType) gunData.get("type"))) {
 							gunData.put("ammo", null);
-						} // if it's a clip we just zero out rounds but leave the clip "loaded".
+						} // if it's a magazine we just zero out rounds but leave the magazine "loaded".
 						gunData.put("rounds", Integer.valueOf(0));
 					}
 					gunData.put("health", health - 1);
@@ -1499,7 +1499,7 @@ public class StandardGun implements BasicGun {
 					} else { // empty.
 						if (AmmoType.BULLET.equals((AmmoType) gunData.get("type"))) {
 							gunData.put("ammo", null);
-						} // if it's a clip we just zero out rounds but leave the clip "loaded".
+						} // if it's a magazine we just zero out rounds but leave the magazine "loaded".
 						gunData.put("rounds", Integer.valueOf(0));
 					}
 					gunData.put("health", health - 1);
@@ -1704,14 +1704,14 @@ public class StandardGun implements BasicGun {
 				}
 			}
 			break;
-		case CLIP:
-			if (gunData.containsKey("clip")) {
-				String clip = (String) gunData.get("clip");
-				if (gunData.containsKey("ammo")) { // locked clip
+		case MAGAZINE:
+			if (gunData.containsKey("magazine")) {
+				String magazine = (String) gunData.get("magazine");
+				if (gunData.containsKey("ammo")) { // locked magazine
 					bullet = (String) gunData.get("ammo");
-					lore.add(ChatColor.GREEN + "Clip " + ChatColor.WHITE + clip + ChatColor.GREEN + " of " + ChatColor.GRAY + bullet + ChatColor.GREEN + " loaded");
+					lore.add(ChatColor.GREEN + "Magazine " + ChatColor.WHITE + magazine + ChatColor.GREEN + " of " + ChatColor.GRAY + bullet + ChatColor.GREEN + " loaded");
 				} else {
-					lore.add(ChatColor.GREEN + "Clip " + ChatColor.WHITE + clip + ChatColor.GREEN + " loaded");
+					lore.add(ChatColor.GREEN + "Magazine " + ChatColor.WHITE + magazine + ChatColor.GREEN + " loaded");
 				}
 				if (rounds <= 0) {
 					lore.add(ChatColor.RED + "  MAGAZINE EMPTY");
@@ -1721,9 +1721,9 @@ public class StandardGun implements BasicGun {
 					lore.add(ChatColor.GREEN + String.format("  %d ", rounds) + ChatColor.BLUE + "Rounds");
 				}
 			} else {
-				lore.add(ChatColor.GREEN + "Gun accepts clips: ");
-				for (String clip : this.allClips) {
-					lore.add(ChatColor.GREEN + " - " + ChatColor.WHITE + clip);
+				lore.add(ChatColor.GREEN + "Gun accepts magazines: ");
+				for (String magazine : this.allMagazines) {
+					lore.add(ChatColor.GREEN + " - " + ChatColor.WHITE + magazine);
 				}
 			}
 			break;
@@ -1870,18 +1870,18 @@ public class StandardGun implements BasicGun {
 				if (!data.containsKey("rounds") || (Integer) data.get("rounds") > this.maxAmmo || (Integer) data.get("rounds") < 0) return false;
 			}
 			break;
-		case CLIP:
-			if (!data.containsKey("clip")) {
-				if (data.containsKey("rounds") && ((Integer) data.get("rounds") > 0)) return false; // no clip but has ammo?
+		case MAGAZINE:
+			if (!data.containsKey("magazine")) {
+				if (data.containsKey("rounds") && ((Integer) data.get("rounds") > 0)) return false; // no magazine but has ammo?
 			} else {
-				Clip clip = AddGun.getPlugin().getAmmo().getClip((String) data.get("clip"));
+				Magazine mag = AddGun.getPlugin().getAmmo().getMagazine((String) data.get("magazine"));
 			
 				if (data.containsKey("ammo")) { 
 					bullet = AddGun.getPlugin().getAmmo().getBullet((String) data.get("ammo"));
 					
 					if (bullet == null) return false;
 					
-					if (!data.containsKey("rounds") || (Integer) data.get("rounds") > clip.maxRounds(bullet.getName()) || (Integer) data.get("rounds") < 0) return false;
+					if (!data.containsKey("rounds") || (Integer) data.get("rounds") > mag.maxRounds(bullet.getName()) || (Integer) data.get("rounds") < 0) return false;
 				} else {
 					if (!data.containsKey("rounds") || (Integer) data.get("rounds") > this.maxAmmo || (Integer) data.get("rounds") < 0) return false;
 				}

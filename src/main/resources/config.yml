@@ -14,7 +14,7 @@ global:
    time: 18000
    # Reset timeout and limits on death
    reset: true
-  clip:
+  magazine:
    give: true
   bullet:
    give: true
@@ -217,8 +217,8 @@ bullets:
    HEAD: # headshot!
     avg: 5
     spread: 0
-clips:
- Pistol Clip:
+magazines:
+ Pistol Magazine:
   example:
     ==: org.bukkit.inventory.ItemStack
     type: END_ROD
@@ -226,10 +226,10 @@ clips:
     meta:
      ==: ItemMeta
      meta-type: UNSPECIFIC
-     display-name: Pistol Clip
+     display-name: Pistol Magazine
   bullets:
    Rifled Shell: 12
- Rifle Clip:
+ Rifle Magazine:
   example:
     ==: org.bukkit.inventory.ItemStack
     type: END_ROD
@@ -237,7 +237,7 @@ clips:
     meta:
      ==: ItemMeta
      meta-type: UNSPECIFIC
-     display-name: Rifle Clip
+     display-name: Rifle Magazine
   bullets:
    Rifled Shell: 32
 guns:
@@ -356,8 +356,8 @@ guns:
      display-name: Pistol  
   ammo:
    xp: 0
-   clips:
-   - Pistol Clip
+   magazines:
+   - Pistol Magazine
   health:
    max: 1000
    misfire:
@@ -397,8 +397,8 @@ guns:
      display-name: AK-47
   ammo:
    xp: 0
-   clips:
-   - Rifle Clip
+   magazines:
+   - Rifle Magazine
   health:
    max: 500
    misfire:

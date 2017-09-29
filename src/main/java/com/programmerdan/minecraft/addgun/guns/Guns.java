@@ -53,7 +53,7 @@ import com.google.common.collect.Sets;
 import com.programmerdan.minecraft.addgun.AddGun;
 import com.programmerdan.minecraft.addgun.ammo.AmmoType;
 import com.programmerdan.minecraft.addgun.ammo.Bullet;
-import com.programmerdan.minecraft.addgun.ammo.Clip;
+import com.programmerdan.minecraft.addgun.ammo.Magazine;
 import com.programmerdan.minecraft.addgun.events.FireGunEvent;
 import com.programmerdan.minecraft.addgun.listeners.PlayerListener;
 
@@ -525,12 +525,12 @@ public class Guns implements Listener {
 		if (currentGun == null) return;
 		
 		Bullet cursorBullet = null;
-		Clip cursorClip = null;
+		Magazine cursorMag = null;
 		
 		if (cursor != null && !Material.AIR.equals(cursor.getType())) {
-			cursorClip = AddGun.getPlugin().getAmmo().findClip(cursor);
+			cursorMag = AddGun.getPlugin().getAmmo().findMagazine(cursor);
 			cursorBullet = AddGun.getPlugin().getAmmo().findBullet(cursor);
-			if (cursorClip != null || cursorBullet != null) {
+			if (cursorMag != null || cursorBullet != null) {
 				// load / swap event.
 				ItemStack[] outcome = currentGun.loadAmmo(current, cursor, event.getWhoClicked());
 				event.setCurrentItem(outcome[0]);

@@ -21,7 +21,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import com.google.common.reflect.ClassPath;
 import com.programmerdan.minecraft.addgun.ammo.Bullet;
 import com.programmerdan.minecraft.addgun.ammo.Bullets;
-import com.programmerdan.minecraft.addgun.ammo.Clip;
+import com.programmerdan.minecraft.addgun.ammo.Magazine;
 import com.programmerdan.minecraft.addgun.commands.CommandHandler;
 import com.programmerdan.minecraft.addgun.guns.BasicGun;
 import com.programmerdan.minecraft.addgun.guns.Guns;
@@ -186,22 +186,22 @@ public class AddGun  extends JavaPlugin {
 			}
 		}
 		
-		ConfigurationSection clips = config.getConfigurationSection("clips");
-		if (clips == null || clips.getKeys(false) == null) {
-			this.warning("No clips enabled.");
+		ConfigurationSection magazines = config.getConfigurationSection("magazines");
+		if (magazines == null || magazines.getKeys(false) == null) {
+			this.warning("No magazines enabled.");
 		}
 
-		for (String clipName : clips.getKeys(false)) {
+		for (String magName : magazines.getKeys(false)) {
 			try {
-				Clip clip = new Clip(clips.getConfigurationSection(clipName));
+				Magazine magazine = new Magazine(magazines.getConfigurationSection(magName));
 				
-				this.ammo.registerClip(clip);
+				this.ammo.registerMagazine(magazine);
 			} catch (Exception e) {
-				warning("Failed to register clip {0} due to error {1}", clipName, e);
+				warning("Failed to register magazine {0} due to error {1}", magName, e);
 			}
 		}
 
-		if (this.ammo.hasClips()) {
+		if (this.ammo.hasMagazines()) {
 			this.getServer().getPluginManager().registerEvents(this.ammo, this);
 		}
 	}

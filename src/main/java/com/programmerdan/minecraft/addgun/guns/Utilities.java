@@ -218,8 +218,8 @@ public class Utilities {
 	 * Supported data right now:
 	 * 
 	 * "ammo": String with unique Bullet name of the ammo loaded
-	 * "clip": String with unique clip name of the clip used, if applicable
-	 * "rounds": Integer with # of bullets or size of clip
+	 * "magazine": String with unique magazine name of the magazine used, if applicable
+	 * "rounds": Integer with # of bullets or size of magazine
 	 * "type": AmmoType; stored as a string, but we convert for you
 	 * "lifetimeShots": total shots fired over whole life, a Long
 	 * "health": remaining shots until 0 health, basically a hidden durability.
@@ -242,8 +242,8 @@ public class Utilities {
 					gunMap.put("ammo", gunData.getString("ammo"));
 				}
 				
-				if (gunData.hasKey("clip")) {
-					gunMap.put("clip", gunData.getString("clip"));
+				if (gunData.hasKey("magazine")) {
+					gunMap.put("magazine", gunData.getString("magazine"));
 				}
 				
 				if (gunData.hasKey("rounds")) {
@@ -305,12 +305,12 @@ public class Utilities {
 			}
 		}
 		
-		if (update.containsKey("clip")) {
-			Object value = update.get("clip");
+		if (update.containsKey("magazine")) {
+			Object value = update.get("magazine");
 			if (value == null) {
-				gunData.remove("clip");
+				gunData.remove("magazine");
 			} else {
-				gunData.setString("clip", (String) value);
+				gunData.setString("magazine", (String) value);
 			}
 		}
 		
@@ -390,85 +390,85 @@ public class Utilities {
 	 * Supported data right now:
 	 * 
 	 * "ammo": String with unique Bullet name of the ammo loaded
-	 * "rounds": Integer with # of bullets in clip
+	 * "rounds": Integer with # of bullets in magazine
 	 * 
-	 * @param clip
+	 * @param magazine
 	 * @return
 	 */
-	public static Map<String, Object> getClipData(ItemStack clip) {
-		net.minecraft.server.v1_12_R1.ItemStack nmsClip = CraftItemStack.asNMSCopy(clip);
-		Map<String, Object> clipMap = new HashMap<String, Object>();
-		if (nmsClip.hasTag()) {
-			NBTTagCompound compound = nmsClip.getTag();
-			NBTBase clipDataStub = compound.get("ClipData");
-			if (clipDataStub != null) {
-				NBTTagCompound gunData = (NBTTagCompound) clipDataStub;
+	public static Map<String, Object> getMagazineData(ItemStack magazine) {
+		net.minecraft.server.v1_12_R1.ItemStack nmsMag = CraftItemStack.asNMSCopy(magazine);
+		Map<String, Object> magazineMap = new HashMap<String, Object>();
+		if (nmsMag.hasTag()) {
+			NBTTagCompound compound = nmsMag.getTag();
+			NBTBase magDataStub = compound.get("MagazineData");
+			if (magDataStub != null) {
+				NBTTagCompound gunData = (NBTTagCompound) magDataStub;
 				
 				if (gunData.hasKey("ammo")) {
-					clipMap.put("ammo", gunData.getString("ammo"));
+					magazineMap.put("ammo", gunData.getString("ammo"));
 				}
 				
 				if (gunData.hasKey("rounds")) {
-					clipMap.put("rounds", gunData.getInt("rounds"));
+					magazineMap.put("rounds", gunData.getInt("rounds"));
 				}
 				
 				if (gunData.hasKey("unid")) {
-					clipMap.put("unid", gunData.getString("unid"));
+					magazineMap.put("unid", gunData.getString("unid"));
 				}
 			}
 		}
-		return clipMap;
+		return magazineMap;
 	}
 	
 	/**
 	 * This will update the fields passed in via the map, leaving other data unmodified.
 	 * 
-	 * @param clip the clip item to update
+	 * @param magazine the magazine item to update
 	 * @param update the limited set of data to update, fields not in the map are unchanged. A field in the map with NULL as value is removed.
 	 * @return the ItemStack, augmented
 	 */
-	public static ItemStack updateClipData(ItemStack clip, Map<String, Object> update) {
-		net.minecraft.server.v1_12_R1.ItemStack nmsClip = CraftItemStack.asNMSCopy(clip);
-		NBTTagCompound compound = nmsClip.hasTag() ? nmsClip.getTag() : new NBTTagCompound();
-		NBTBase clipDataStub = compound.get("ClipData");
-		NBTTagCompound clipData = null;
-		if (clipDataStub != null) {
-			clipData = (NBTTagCompound) clipDataStub;
+	public static ItemStack updateMagazineData(ItemStack magazine, Map<String, Object> update) {
+		net.minecraft.server.v1_12_R1.ItemStack nmsMagazine = CraftItemStack.asNMSCopy(magazine);
+		NBTTagCompound compound = nmsMagazine.hasTag() ? nmsMagazine.getTag() : new NBTTagCompound();
+		NBTBase magDataStub = compound.get("MagazineData");
+		NBTTagCompound magData = null;
+		if (magDataStub != null) {
+			magData = (NBTTagCompound) magDataStub;
 		} else {
-			clipData = new NBTTagCompound();
+			magData = new NBTTagCompound();
 		}
 		
 		if (update.containsKey("ammo")) {
 			Object value = update.get("ammo");
 			if (value == null) {
-				clipData.remove("ammo");
+				magData.remove("ammo");
 			} else {
-				clipData.setString("ammo", (String) value);
+				magData.setString("ammo", (String) value);
 			}
 		}
 		
 		if (update.containsKey("rounds")) {
 			Object value = update.get("rounds");
 			if (value == null) {
-				clipData.remove("rounds");
+				magData.remove("rounds");
 			} else {
-				clipData.setInt("rounds", (Integer) value);
+				magData.setInt("rounds", (Integer) value);
 			}
 		}
 		
 		if (update.containsKey("unid")) {
 			Object value = update.get("unid");
 			if (value == null) {
-				clipData.remove("unid");
+				magData.remove("unid");
 			} else {
-				clipData.setString("unid", (String) value);
+				magData.setString("unid", (String) value);
 			}
 		}
 
-		compound.set("ClipData", clipData);
-		nmsClip.setTag(compound);
+		compound.set("MagazineData", magData);
+		nmsMagazine.setTag(compound);
 		
-		return CraftItemStack.asBukkitCopy(nmsClip);
+		return CraftItemStack.asBukkitCopy(nmsMagazine);
 	}
 	
 	/**

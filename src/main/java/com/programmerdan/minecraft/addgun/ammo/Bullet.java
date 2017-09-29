@@ -40,7 +40,7 @@ import com.programmerdan.minecraft.addgun.ArmorType;
 import com.programmerdan.minecraft.addgun.guns.HitPart;
 
 /**
- * Represents a single bullet type that can match against standard ammo, be aggregated into clips or directly loaded into a gun.
+ * Represents a single bullet type that can match against standard ammo, be aggregated into magazines or directly loaded into a gun.
  * 
  * @author ProgrammerDan
  *

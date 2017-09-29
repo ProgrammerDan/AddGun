@@ -25,7 +25,7 @@ import org.bukkit.inventory.ItemStack;
 
 import com.programmerdan.minecraft.addgun.AddGun;
 import com.programmerdan.minecraft.addgun.ammo.Bullet;
-import com.programmerdan.minecraft.addgun.ammo.Clip;
+import com.programmerdan.minecraft.addgun.ammo.Magazine;
 import com.programmerdan.minecraft.addgun.guns.BasicGun;
 
 public class CommandHandler implements CommandExecutor, TabCompleter {
@@ -33,7 +33,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 	
 	private PluginCommand giveGun;
 	private PluginCommand giveBullet;
-	private PluginCommand giveClip;
+	private PluginCommand giveMag;
 	private PluginCommand repairGun;
 	
 	private PluginCommand giveSelfGun;
@@ -52,13 +52,13 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 	private boolean giveSelfBulletReset = false;
 	private Map<UUID, Long> selfBulletTimeouts = new ConcurrentHashMap<UUID, Long>();
 	
-	private PluginCommand giveSelfClip;
-	private boolean giveSelfClipEnabled = false;
-	private int giveSelfClipLimit = 0;
-	private Map<UUID, Integer> selfClipLimits = new ConcurrentHashMap<UUID, Integer>();
-	private long giveSelfClipTimeout = 0;
-	private boolean giveSelfClipReset = false;
-	private Map<UUID, Long> selfClipTimeouts = new ConcurrentHashMap<UUID, Long>();
+	private PluginCommand giveSelfMag;
+	private boolean giveSelfMagEnabled = false;
+	private int giveSelfMagLimit = 0;
+	private Map<UUID, Integer> selfMagLimits = new ConcurrentHashMap<UUID, Integer>();
+	private long giveSelfMagTimeout = 0;
+	private boolean giveSelfMagReset = false;
+	private Map<UUID, Long> selfMagTimeouts = new ConcurrentHashMap<UUID, Long>();
 	
 	private PluginCommand repairSelfGun;
 	private boolean repairSelfGunEnabled = false;
@@ -79,9 +79,9 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 		giveBullet.setExecutor(this);
 		giveBullet.setTabCompleter(this);
 		
-		giveClip = plugin.getCommand("giveclip");
-		giveClip.setExecutor(this);
-		giveClip.setTabCompleter(this);
+		giveMag = plugin.getCommand("givemagazine");
+		giveMag.setExecutor(this);
+		giveMag.setTabCompleter(this);
 		
 		repairGun = plugin.getCommand("repairgun");
 		repairGun.setExecutor(this);
@@ -95,9 +95,9 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 		giveSelfBullet.setExecutor(this);
 		giveSelfBullet.setTabCompleter(this);
 		
-		giveSelfClip = plugin.getCommand("giveselfclip");
-		giveSelfClip.setExecutor(this);
-		giveSelfClip.setTabCompleter(this);
+		giveSelfMag = plugin.getCommand("giveselfmagazine");
+		giveSelfMag.setExecutor(this);
+		giveSelfMag.setTabCompleter(this);
 		
 		repairSelfGun = plugin.getCommand("repairselfgun");
 		repairSelfGun.setExecutor(this);
@@ -116,12 +116,12 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 				}
 			}
 			
-			if (commandCfg.isConfigurationSection("clip")) {
-				if (commandCfg.getBoolean("clip.give", false)) {
-					giveSelfClipEnabled = true;
-					giveSelfClipLimit = commandCfg.getInt("clip.limit", 0);
-					giveSelfClipTimeout = commandCfg.getLong("clip.time", 0);
-					giveSelfClipReset = commandCfg.getBoolean("clip.reset", true);
+			if (commandCfg.isConfigurationSection("magazine")) {
+				if (commandCfg.getBoolean("magazine.give", false)) {
+					giveSelfMagEnabled = true;
+					giveSelfMagLimit = commandCfg.getInt("magazine.limit", 0);
+					giveSelfMagTimeout = commandCfg.getLong("magazine.time", 0);
+					giveSelfMagReset = commandCfg.getBoolean("magazine.reset", true);
 				}
 			}
 			
@@ -144,7 +144,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 			}
 		}
 		
-		if (repairSelfGunTimeout > 0 || giveSelfBulletTimeout > 0 || giveSelfClipTimeout > 0 || giveSelfGunTimeout > 0) {
+		if (repairSelfGunTimeout > 0 || giveSelfBulletTimeout > 0 || giveSelfMagTimeout > 0 || giveSelfGunTimeout > 0) {
 			plugin.getServer().getPluginManager().registerEvents(new Listener() {
 				@EventHandler(ignoreCancelled=true, priority=EventPriority.NORMAL)
 				public void deathReset(PlayerDeathEvent event) {
@@ -162,11 +162,11 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 					if (giveSelfBulletLimit > 0) {
 						selfBulletLimits.remove(pid);
 					}
-					if (giveSelfClipReset) {
-						selfClipTimeouts.remove(pid);
+					if (giveSelfMagReset) {
+						selfMagTimeouts.remove(pid);
 					}
-					if (giveSelfClipLimit > 0) {
-						selfClipLimits.remove(pid);
+					if (giveSelfMagLimit > 0) {
+						selfMagLimits.remove(pid);
 					}
 					if (repairSelfGunReset) {
 						selfRepairTimeouts.remove(pid);
@@ -239,8 +239,8 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 				sender.sendMessage("Gave " + amt + " " + bullet.getName() + (amt > 1 ? "s" : "") + " to " + args[0]);
 				return true;
 			}
-		} else if (cmd.equals(giveClip)) {
-			if (args.length < 2) {// <player> <clip>
+		} else if (cmd.equals(giveMag)) {
+			if (args.length < 2) {// <player> <magazine>
 				return false;
 			} else {
 				Player target = Bukkit.getPlayer(args[0]); // player!
@@ -248,15 +248,15 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 					sender.sendMessage("Could not find player " + args[0]);
 					return true;
 				}
-				String clipLabel = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
-				Clip clip = plugin.getAmmo().getClip(clipLabel);
-				if (clip == null) {
-					sender.sendMessage("Could not find clip " + clipLabel + ". Try using tab-complete to search for valid clips.");
+				String magazineLabel = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+				Magazine magazine = plugin.getAmmo().getMagazine(magazineLabel);
+				if (magazine == null) {
+					sender.sendMessage("Could not find magazine " + magazineLabel + ". Try using tab-complete to search for valid magazines.");
 					return true;
 				}
-				ItemStack clipItem = clip.getClipItem(null, 0);
-				target.getInventory().addItem(clipItem);
-				sender.sendMessage("Gave a fresh " + clipLabel + " to " + args[0]);
+				ItemStack magazineItem = magazine.getMagazineItem(null, 0);
+				target.getInventory().addItem(magazineItem);
+				sender.sendMessage("Gave a fresh " + magazineLabel + " to " + args[0]);
 				return true;
 			}
 		} else if (cmd.equals(repairGun)) {
@@ -376,26 +376,26 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 					sender.sendMessage("Bullet limit reached, please wait a bit and try again");
 					return true;
 				}
-			} else if (giveSelfClipEnabled && cmd.equals(giveSelfClip)) {
-				if (giveSelfClipTimeout > 0l && selfClipTimeouts.getOrDefault(pid, System.currentTimeMillis() - 1000l) < System.currentTimeMillis()) {
-					selfClipLimits.put(pid, 0); // reset limits.
-					selfClipTimeouts.put(pid, System.currentTimeMillis() + giveSelfClipTimeout);
+			} else if (giveSelfMagEnabled && cmd.equals(giveSelfMag)) {
+				if (giveSelfMagTimeout > 0l && selfMagTimeouts.getOrDefault(pid, System.currentTimeMillis() - 1000l) < System.currentTimeMillis()) {
+					selfMagLimits.put(pid, 0); // reset limits.
+					selfMagTimeouts.put(pid, System.currentTimeMillis() + giveSelfMagTimeout);
 				}
-				if (giveSelfClipLimit == 0 || selfClipLimits.getOrDefault(pid, 0) < giveSelfClipLimit) {
+				if (giveSelfMagLimit == 0 || selfMagLimits.getOrDefault(pid, 0) < giveSelfMagLimit) {
 					// ready to go
 					
-					String clipLabel = String.join(" ", args);
-					Clip clip = plugin.getAmmo().getClip(clipLabel);
-					if (clip == null) {
-						new ViewClips(player);
+					String magLabel = String.join(" ", args);
+					Magazine mag = plugin.getAmmo().getMagazine(magLabel);
+					if (mag == null) {
+						new ViewMagazines(player);
 						return true;
 					}
-					ItemStack clipItem = clip.getClipItem(null, 0);
-					player.getInventory().addItem(clipItem);
-					sender.sendMessage("Gave a fresh " + clipLabel + " to you");
-					plugin.info("Gave a fresh " + clipLabel + " to " + player.getName());
+					ItemStack magItem = mag.getMagazineItem(null, 0);
+					player.getInventory().addItem(magItem);
+					sender.sendMessage("Gave a fresh " + magLabel + " to you");
+					plugin.info("Gave a fresh " + magLabel + " to " + player.getName());
 					
-					selfClipLimits.compute(pid, (p, i) -> {
+					selfMagLimits.compute(pid, (p, i) -> {
 						if (i == null) {
 							i = 1;
 						} else { 
@@ -405,7 +405,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 					});
 					return true;
 				} else {
-					sender.sendMessage("Clip limit reached, please wait a bit and try again");
+					sender.sendMessage("Magazine limit reached, please wait a bit and try again");
 					return true;
 				}
 			} else if (repairSelfGunEnabled && cmd.equals(repairSelfGun)) {
@@ -466,7 +466,7 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 		sb.append("'");
 		AddGun.getPlugin().debug(sb.toString());
 		
-		if (cmd.equals(repairGun) || cmd.equals(giveGun) || cmd.equals(giveBullet) || cmd.equals(giveClip)) {
+		if (cmd.equals(repairGun) || cmd.equals(giveGun) || cmd.equals(giveBullet) || cmd.equals(giveMag)) {
 			if (args.length <= 1){
 				String almost = (args.length == 1) ? args[0] : null;
 				
@@ -514,21 +514,21 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 			} else {
 				return null;
 			}
-		} else if (cmd.equals(giveClip)) {
+		} else if (cmd.equals(giveMag)) {
 			if (args.length >= 2) {
 				if (args[1] == null || args[1].equals("")) {
-					return new ArrayList<String>(plugin.getAmmo().allClipNames());
+					return new ArrayList<String>(plugin.getAmmo().allMagazineNames());
 				}
 				
-				String clipLabel = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
-				Set<String> clips = plugin.getAmmo().allClipNames();
-				List<String> maybeClips = new ArrayList<String>();
-				for (String clip : clips) {
-					if (clip.startsWith(clipLabel)) {
-						maybeClips.add(clip);
+				String magLabel = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+				Set<String> mags = plugin.getAmmo().allMagazineNames();
+				List<String> maybeMags = new ArrayList<String>();
+				for (String mag : mags) {
+					if (mag.startsWith(magLabel)) {
+						maybeMags.add(mag);
 					}
 				}
-				return maybeClips;
+				return maybeMags;
 			} else {
 				return null;
 			}
@@ -568,21 +568,21 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 			} else {
 				return null;
 			}
-		} else if (cmd.equals(giveSelfClip)) {
+		} else if (cmd.equals(giveSelfMag)) {
 			if (args.length >= 1) {
 				if (args[0] == null || args[0].equals("")) {
-					return new ArrayList<String>(plugin.getAmmo().allClipNames());
+					return new ArrayList<String>(plugin.getAmmo().allMagazineNames());
 				}
 				
-				String clipLabel = String.join(" ", args);
-				Set<String> clips = plugin.getAmmo().allClipNames();
-				List<String> maybeClips = new ArrayList<String>();
-				for (String clip : clips) {
-					if (clip.startsWith(clipLabel)) {
-						maybeClips.add(clip);
+				String magLabel = String.join(" ", args);
+				Set<String> mags = plugin.getAmmo().allMagazineNames();
+				List<String> maybeMags = new ArrayList<String>();
+				for (String mag : mags) {
+					if (mag.startsWith(magLabel)) {
+						maybeMags.add(mag);
 					}
 				}
-				return maybeClips;
+				return maybeMags;
 			} else {
 				return null;
 			}
