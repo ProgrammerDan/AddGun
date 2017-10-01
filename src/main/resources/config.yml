@@ -22,7 +22,7 @@ global:
    give: false
 bullets:
  Lead Slug:
-  type: SMALL_FIREBALL
+  type: SNOWBALL
   example:
     ==: org.bukkit.inventory.ItemStack
     type: IRON_NUGGET
@@ -37,12 +37,11 @@ bullets:
   missRadius: # these are augments, round shot is not easy to aim
    max: 5
    min: 2
-  sneak: # these are augments
-   inflection: 1.5 # seconds sneaking
-   spread: 1.0 # spread on sigmoid
-  still: # these are augments
-   inflection: 3.0
-   spread: 2.0
+  knockback:
+   chance: 1.0
+   ignore-reduction: true
+   avg: 1.0
+   spread: 0.5
   explosion:
    chance: 0.0
   incendiary:
@@ -88,7 +87,7 @@ bullets:
     avg: 2
     spread: 0
  Rifled Shell:
-  type: SMALL_FIREBALL
+  type: SNOWBALL
   example:
     ==: org.bukkit.inventory.ItemStack
     type: GOLD_NUGGET
@@ -102,12 +101,11 @@ bullets:
   missRadius: # these are augments, shells, being rifled, are fairly consistent
    max: 1
    min: 0
-  sneak: # these are augments
-   inflection: 0 # seconds sneaking
-   spread: 0 # spread on sigmoid
-  still: # these are augments
-   inflection: 0
-   spread: 0
+  knockback:
+   chance: 1.0
+   ignore-reduction: true
+   avg: 1.0
+   spread: 0.5
   explosion:
    chance: 0.0
   incendiary:
@@ -152,7 +150,7 @@ bullets:
     avg: 3
     spread: 4
  Mortar Shell:
-  type: LARGE_FIREBALL
+  type: SNOWBALL
   example:
     ==: org.bukkit.inventory.ItemStack
     type: FIREWORK_CHARGE
@@ -166,12 +164,11 @@ bullets:
   missRadius: # unrifled mortars are generally not accurate
    max: 20
    min: 5
-  sneak: # these are augments
-   inflection: 3 # seconds sneaking
-   spread: 0 # spread on sigmoid
-  still: # these are augments
-   inflection: -3
-   spread: 0
+  knockback:
+   chance: 1.0
+   ignore-reduction: true
+   avg: 1.5
+   spread: 0.5
   explosion:
    chance: 90.0
    level: 2.0 # boom
@@ -292,12 +289,10 @@ guns:
    radius:
     max: 30
     min: 0
-   still:
-    inflection: 6
-    spread: 2
-   sneak:
-    inflection: 6
-    spread: 2
+   innate: 0.075
+   base: 0.05
+   kickback: 10 # angular kick post shot
+   aim: 0.4 # per shot disconnect
   cooldown:
    milliseconds: 2000
    equip: false
@@ -334,12 +329,10 @@ guns:
    radius:
     max: 40
     min: 2
-   still:
-    inflection: 10 
-    spread: 2
-   sneak:
-    inflection: 5
-    spread: 1
+   innate: 0.05
+   base: 0.03
+   kickback: 5 # angular kick post shot
+   aim: 0.2 # per shot disconnect
   cooldown:
    milliseconds: 250
    equip: false
@@ -375,12 +368,10 @@ guns:
    radius:
     max: 25
     min: 1
-   still:
-    inflection: 8 
-    spread: 2
-   sneak:
-    inflection: 6
-    spread: 1
+   innate: 0.005
+   base: 0.024
+   kickback: 4 # angular kick post shot
+   aim: 0.1 # per shot disconnect
   cooldown:
    milliseconds: 100
    equip: false
@@ -416,12 +407,10 @@ guns:
    radius:
     max: 20
     min: 5 # be close if you want to hit anything
-   still:
-    inflection: 4 # still doesn't help tbh 
-    spread: 1
-   sneak:
-    inflection: 4
-    spread: 1
+   innate: 0.001
+   base: 0.05
+   kickback: 10 # angular kick post shot
+   aim: 0.15 # per shot disconnect
   cooldown:
    milliseconds: 200
    equip: false
@@ -458,12 +447,10 @@ guns:
    radius:
     max: 30
     min: 15 # just not that accurate
-   still:
-    inflection: 20 
-    spread: 2
-   sneak:
-    inflection: 100
-    spread: 5
+   innate: 0.02
+   base: 0.1
+   kickback: 25 # angular kick post shot
+   aim: 0.4 # per shot disconnect
   cooldown:
    milliseconds: 5000
    equip: true

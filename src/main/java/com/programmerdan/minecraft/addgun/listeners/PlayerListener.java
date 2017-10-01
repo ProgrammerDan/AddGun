@@ -3,6 +3,7 @@ package com.programmerdan.minecraft.addgun.listeners;
 import com.programmerdan.minecraft.addgun.AddGun;
 import com.programmerdan.minecraft.addgun.guns.Animation;
 import com.programmerdan.minecraft.addgun.guns.Recticle;
+import com.programmerdan.minecraft.addgun.guns.ShotTracker;
 
 import java.util.List;
 import java.util.Map;
@@ -40,57 +41,122 @@ import org.bukkit.event.vehicle.VehicleMoveEvent;
 public class PlayerListener implements Listener {
 	
 	private AddGun plugin;
+
 	
 	/**
 	 * If the gun uses stability mechanics, tracks which players are sneaking and since when.
 	 */
 	private Map<UUID, Long> sneakingSince = new ConcurrentHashMap<>();
+	private Map<UUID, Long> sneakingEnd = new ConcurrentHashMap<>();
+
+	
 	/**
-	 * If the gun uses stability mechanics, tracks which players are still and since when.
+	 * If the gun uses stability mechanics, tracks which players are running and since when.
 	 */
-	private Map<UUID, Long> stillSince = new ConcurrentHashMap<>();
+	private Map<UUID, Long> walkingSince = new ConcurrentHashMap<>();
+	private Map<UUID, Long> walkingEnd = new ConcurrentHashMap<>();
 
 	/**
 	 * If the gun uses stability mechanics, tracks which players are running and since when.
 	 */
 	private Map<UUID, Long> sprintingSince = new ConcurrentHashMap<>();
+	private Map<UUID, Long> sprintingEnd = new ConcurrentHashMap<>();
 	
 	/**
 	 * Tracks player flight.
 	 */
 	private Map<UUID, Long> glidingSince = new ConcurrentHashMap<>();
-	
-	/*/*
-	 * Might not use this but tracks falling.
-	 */
-	//private Map<UUID, Long> fallingSince = new ConcurrentHashMap<>();
+	private Map<UUID, Long> glidingEnd = new ConcurrentHashMap<>();
 	
 	/**
 	 * Tracks when players enter or leave vehicles
 	 */
 	private Map<UUID, Long> vehicleSince = new ConcurrentHashMap<>();
+	private Map<UUID, Long> vehicleLeft = new ConcurrentHashMap<>();
+
+	/**
+	 * Tracks when player is still
+	 */
+	private Map<UUID, Long> stillSince = new ConcurrentHashMap<>();
+	private Map<UUID, Long> stillEnd = new ConcurrentHashMap<>();
 	
 	/**
 	 * Tracks various player head transmissions
 	 */
-	private Map<UUID, Animation> activeKnockbacks = new ConcurrentHashMap<>();
 	private final ScheduledExecutorService scheduler;
 	private Map<UUID, ScheduledFuture<?>> activeKnockbackTasks = new ConcurrentHashMap<>();
 	private Map<UUID, ScheduledFuture<?>> aimIndicators = new ConcurrentHashMap<>();
 	
+	private Map<UUID, ScheduledFuture<?>> activeShotTasks = new ConcurrentHashMap<>();
+	private Map<UUID, ShotTracker> activeShotTrackers = new ConcurrentHashMap<>();
+	
 	public PlayerListener(FileConfiguration config) {
 		plugin = AddGun.getPlugin();
-		scheduler = Executors.newScheduledThreadPool(10);
+		scheduler = Executors.newScheduledThreadPool(50);
 		plugin.getServer().getPluginManager().registerEvents(this, plugin);
 	}
 
 	public void shutdown() {
 		sneakingSince.clear();
-		stillSince.clear();
+		walkingSince.clear();
 		glidingSince.clear();
 		vehicleSince.clear();
 		sprintingSince.clear();
+		stillSince.clear();
+		sneakingEnd.clear();
+		walkingEnd.clear();
+		glidingEnd.clear();
+		vehicleLeft.clear();
+		sprintingEnd.clear();
+		stillEnd.clear();
+		
 		scheduler.shutdown();
+	}
+	
+	/**
+	 * Each shot has a unique impact on the player's ability to aim. These impacts are recorded and
+	 * managed.
+	 * 
+	 * @param player
+	 * @return
+	 */
+	public double getShotImpact(UUID player) {
+		ShotTracker tracker = activeShotTrackers.get(player);
+		if (tracker == null) {
+			return 0.0d;
+		} else {
+			return tracker.getAimOffset();
+		}
+	}
+	
+	/**
+	 * Records a new shot impact. This isn't generalized and this API is likely to change as my understanding matures.
+	 * 
+	 * @param player
+	 * @param impact
+	 * @param decay
+	 * @param ticks
+	 */
+	public void recordShotImpact(UUID player, double impact, double decay, int ticks) {
+		ShotTracker tracker = activeShotTrackers.compute(player, (u, s) -> {
+			ShotTracker shotTracker = s;
+			if (s == null) {
+				shotTracker = new ShotTracker();
+			}
+			shotTracker.addShot(impact, decay, ticks);
+			
+			return shotTracker;
+		});
+		
+		if (tracker != null) {
+			activeShotTasks.compute(player, (p, s) -> {
+				if (s == null || (s != null && s.isDone())) {
+					return scheduler.scheduleAtFixedRate(tracker, 50l, 50l, TimeUnit.MILLISECONDS); // we "do by ticks"
+				} else {
+					return s;
+				}
+			});
+		}
 	}
 	
 	/**
@@ -101,6 +167,9 @@ public class PlayerListener implements Listener {
 	public Long getStillSince(UUID player) {
 		return stillSince.get(player);
 	}
+	public Long getStillEnd(UUID player) {
+		return stillEnd.get(player);
+	}
 	
 	/**
 	 * Returns the time this player started sneaking, or null
@@ -110,6 +179,9 @@ public class PlayerListener implements Listener {
 	public Long getSneakingSince(UUID player) {
 		return sneakingSince.get(player);
 	}
+	public Long getSneakingEnd(UUID player) {
+		return sneakingEnd.get(player);
+	}
 	
 	/**
 	 * External hard reset of stillness. Typically used when firing a gun.
@@ -118,8 +190,43 @@ public class PlayerListener implements Listener {
 	public void resetStillSince(UUID player) {
 		sneakingSince.put(player, System.currentTimeMillis());
 	}
+
+	/**
+	 * This is constructed, but basically picks the most recent time when you stopped being still, sneaking, sprinting, or gliding...
+	 * which means you are walking.
+	 */
+	public Long getWalkingSince(UUID player) {
+		Long stillE = stillEnd.get(player);
+		if (stillE == null) return null;
+		Long sneakE = sneakingEnd.get(player);
+		Long latestE = sneakE == null ? stillE : Math.max(sneakE, stillE);
+		Long sprintE = sprintingEnd.get(player);
+		latestE = sprintE == null ? latestE : Math.max(sprintE, latestE);
+		Long glidingE = glidingEnd.get(player);
+		latestE = glidingE == null ? latestE : Math.max(glidingE, latestE);
+		return latestE;
+	}
 	
+	public Long getSprintingSince(UUID player) {
+		return sprintingSince.get(player);
+	}
+	public Long getSprintingEnd(UUID player) {
+		return sprintingEnd.get(player);
+	}
 	
+	public Long getGlidingSince(UUID player) {
+		return glidingSince.get(player);
+	}
+	public Long getGlidingEnd(UUID player) {
+		return glidingEnd.get(player);
+	}
+	
+	public Long getVehicleSince(UUID player) {
+		return vehicleSince.get(player);
+	}
+	public Long getVehicleEnd(UUID player) {
+		return vehicleLeft.get(player);
+	}
 	
 	/**
 	 * Keeps track of player sneaking; if they are sneaking, we track when the
@@ -145,11 +252,16 @@ public class PlayerListener implements Listener {
 				});
 				return System.currentTimeMillis();
 			});
+			sneakingEnd.remove(event.getPlayer().getUniqueId());
 		} else {
 			/*if (sneakingSince.containsKey(event.getPlayer().getUniqueId()) && event.getPlayer().hasPermission("addgun.data")) { 
 				event.getPlayer().sendMessage(ChatColor.GOLD + " sneak cleared");
 			}*/
 			sneakingSince.remove(event.getPlayer().getUniqueId());
+			sneakingEnd.computeIfAbsent(event.getPlayer().getUniqueId(), u -> {
+				return System.currentTimeMillis();
+			});
+
 			this.aimIndicators.computeIfPresent(event.getPlayer().getUniqueId(), (p, track) -> {
 				try {
 					track.cancel(true);
@@ -174,11 +286,15 @@ public class PlayerListener implements Listener {
 				//if (event.getPlayer().hasPermission("addgun.data")) { event.getPlayer().sendMessage(ChatColor.GOLD + " sprint started"); }
 				return System.currentTimeMillis();
 			});
+			sprintingEnd.remove(event.getPlayer().getUniqueId());
 		} else {
 			/*if (sprintingSince.containsKey(event.getPlayer().getUniqueId()) && event.getPlayer().hasPermission("addgun.data")) { 
 				event.getPlayer().sendMessage(ChatColor.GOLD + " sprint cleared");
 			}*/
 			sprintingSince.remove(event.getPlayer().getUniqueId());
+			sprintingEnd.computeIfAbsent(event.getPlayer().getUniqueId(), u -> {
+				return System.currentTimeMillis();
+			});
 		}
 	}
 
@@ -195,11 +311,15 @@ public class PlayerListener implements Listener {
 				//if (event.getPlayer().hasPermission("addgun.data")) { event.getPlayer().sendMessage(ChatColor.GOLD + "glide started"); }
 				return System.currentTimeMillis();
 			});
+			glidingEnd.remove(event.getPlayer().getUniqueId());
 		} else {
 			/*if (glidingSince.containsKey(event.getPlayer().getUniqueId()) && event.getPlayer().hasPermission("addgun.data")) { 
 				event.getPlayer().sendMessage(ChatColor.GOLD + " glide cleared");
 			}*/
 			glidingSince.remove(event.getPlayer().getUniqueId());
+			glidingEnd.computeIfAbsent(event.getPlayer().getUniqueId(), u -> {
+				return System.currentTimeMillis();
+			});
 		}
 	}
 	
@@ -219,11 +339,15 @@ public class PlayerListener implements Listener {
 				//if (eventPlayer.hasPermission("addgun.data")) { eventPlayer.sendMessage(ChatColor.GOLD + "glide started"); }
 				return System.currentTimeMillis();
 			});
+			glidingEnd.remove(eventPlayer.getUniqueId());
 		} else {
 			/*if (glidingSince.containsKey(eventPlayer.getUniqueId()) && eventPlayer.hasPermission("addgun.data")) { 
 				eventPlayer.sendMessage(ChatColor.GOLD + " glide cleared");
 			}*/
 			glidingSince.remove(eventPlayer.getUniqueId());
+			glidingEnd.computeIfAbsent(eventPlayer.getUniqueId(), u -> {
+				return System.currentTimeMillis();
+			});
 		}
 	}
 	/**
@@ -235,16 +359,21 @@ public class PlayerListener implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
 	public void playerMoveEvent(PlayerMoveEvent event) {
+		Player player = event.getPlayer();
 		if (event.getFrom().distanceSquared(event.getTo()) <= .000001) {
-			stillSince.computeIfAbsent(event.getPlayer().getUniqueId(), u -> {
+			stillSince.computeIfAbsent(player.getUniqueId(), u -> {
 				//if (event.getPlayer().hasPermission("addgun.data")) { event.getPlayer().sendMessage(ChatColor.GOLD + " still started"); }
 				return System.currentTimeMillis(); 
 			});
+			stillEnd.remove(player.getUniqueId());
 		} else {
 			/*if (stillSince.containsKey(event.getPlayer().getUniqueId()) && event.getPlayer().hasPermission("addgun.data")) {
 				event.getPlayer().sendMessage(ChatColor.GOLD + " still cleared");
 			}*/
-			stillSince.remove(event.getPlayer().getUniqueId());
+			stillSince.remove(player.getUniqueId());
+			stillEnd.computeIfAbsent(player.getUniqueId(), u -> {
+				return System.currentTimeMillis(); 
+			});
 		}
 	}
 
@@ -267,12 +396,16 @@ public class PlayerListener implements Listener {
 						stillSince.computeIfAbsent(e.getUniqueId(), u -> {
 							return System.currentTimeMillis(); 
 						});
+						stillEnd.remove(e.getUniqueId());
 					}
 				}
 			} else {
 				for (Entity e : passengers) {
 					if (e instanceof LivingEntity) {		
 						stillSince.remove(e.getUniqueId());
+						stillEnd.computeIfAbsent(e.getUniqueId(), u -> {
+							return System.currentTimeMillis(); 
+						});
 					}
 				}
 			}
@@ -293,6 +426,7 @@ public class PlayerListener implements Listener {
 				//if (eventPlayer.hasPermission("addgun.data")) {eventPlayer.sendMessage(ChatColor.GOLD + " entered vehicle"); }
 				return System.currentTimeMillis(); 
 			});
+			vehicleLeft.remove(eventPlayer.getUniqueId());
 		}
 	}
 
@@ -310,6 +444,9 @@ public class PlayerListener implements Listener {
 				eventPlayer.sendMessage(ChatColor.GOLD + " exited vehicle");
 			}*/
 			vehicleSince.remove(eventPlayer.getUniqueId());
+			vehicleLeft.computeIfAbsent(eventPlayer.getUniqueId(), u -> {
+				return System.currentTimeMillis(); 
+			});
 		}
 	}
 

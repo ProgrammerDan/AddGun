@@ -163,63 +163,34 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 	/**
 	 * Knockback on hit
 	 */
-	private int knockback = 0;
+	private double knockbackAvg = 0;
+	/**
+	 * Wiggle on avg
+	 */
+	private double knockbackSpread = 0;
 	/**
 	 * Chance of knockback.
 	 */
 	private double knockbackChance = 0.0d;
+	/**
+	 * Is knockback attenuated by armor reduction?
+	 */
+	private boolean knockbackIgnoreReduction = false;
 
-	/**
-	 * The point at which, after so many seconds of "stillness" -- head motion only -- that any aim impacts are halved.
-	 * Additive to gun base. Some bullets are harder to fire.
-	 */
-	private double stillInflection = 0.0d;
-	/**
-	 * The point at which, after so many seconds of sneaking, any aim impacts are halved.
-	 */
-	private double sneakInflection = 0.0d;
-	/**
-	 * A relative "spread" of speed of motion over inflection, values close to 0 lead to a sharp inflection, values larger make a smoother
-	 * transition. This is for stillness. Adds to gun spread, so keep this reasonable.
-	 */
-	private double stillSpread = 0.0d;
-	/**
-	 * A relative "spread" of speed of motion over inflection, values close to 0 lead to a sharp inflection, values larger make a smoother
-	 * transition. This is for sneaking.
-	 */
-	private double sneakSpread = 0.0d;
-
+	public double getKnockbackChance() {
+		return knockbackChance;
+	}
 	
-	public double getStillInflection() {
-		return stillInflection;
+	public double getKnockbackAvg() {
+		return knockbackAvg;
 	}
-
-	public void setStillInflection(double stillInflection) {
-		this.stillInflection = stillInflection;
+	
+	public double getKnockbackSpread() {
+		return knockbackSpread;
 	}
-
-	public double getSneakInflection() {
-		return sneakInflection;
-	}
-
-	public void setSneakInflection(double sneakInflection) {
-		this.sneakInflection = sneakInflection;
-	}
-
-	public double getStillSpread() {
-		return stillSpread;
-	}
-
-	public void setStillSpread(double stillSpread) {
-		this.stillSpread = stillSpread;
-	}
-
-	public double getSneakSpread() {
-		return sneakSpread;
-	}
-
-	public void setSneakSpread(double sneakSpread) {
-		this.sneakSpread = sneakSpread;
+	
+	public boolean getKnockbackIgnoreReduction() {
+		return knockbackIgnoreReduction;
 	}
 	
 	// bypass stuff is TODO
@@ -287,11 +258,11 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 		this.xpDraw = config.getInt("xpPerShot", xpDraw);
 		this.maxMissRadius = config.getDouble("missRadius.max", maxMissRadius);
 		this.minMissRadius = config.getDouble("missRadius.min", minMissRadius);
-		
-		this.sneakInflection = config.getDouble("sneak.inflection", sneakInflection);
-		this.sneakSpread = config.getDouble("sneak.spread", sneakSpread);
-		this.stillInflection = config.getDouble("still.inflection", stillInflection);
-		this.stillSpread = config.getDouble("still.spread", stillSpread);
+
+		this.knockbackChance = config.getDouble("knockback.chance", knockbackChance);
+		this.knockbackAvg = config.getDouble("knockback.avg", knockbackAvg);
+		this.knockbackSpread = config.getDouble("knockback.spread", knockbackSpread);
+		this.knockbackIgnoreReduction = config.getBoolean("knockback.ignore-reduction", knockbackIgnoreReduction);
 		
 		this.avgScatter = config.getInt("scatter.avg", avgScatter);
 		this.spreadScatter = config.getInt("scatter.spread", spreadScatter);
@@ -302,9 +273,6 @@ public class Bullet implements Comparable<Bullet>, Serializable {
 		
 		this.fireChance = config.getDouble("incendiary.chance", fireChance);
 		this.fireTicks = config.getInt("incendiary.ticks", fireTicks);
-		
-		this.knockbackChance = config.getDouble("knockback.chance", knockbackChance);
-		this.knockback = config.getInt("knockback.level", knockback);
 		
 		// TODO: damage bypass.
 		this.baseArmorReduction = config.getDouble("reduction.base", baseArmorReduction);

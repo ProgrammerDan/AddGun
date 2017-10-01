@@ -308,6 +308,8 @@ public class Guns implements Listener {
 					} else {
 						player.sendMessage(ChatColor.AQUA + gun.getName() + ChatColor.RED + " misfired! Try again.");
 					}
+
+					AddGun.getPlugin().getPlayerListener().recordShotImpact(player.getUniqueId(), gun.getInnateAim(), gun.getInnateAim() / ((gun.getCooldown()*2l) / 50), (int) (gun.getCooldown()*2l) / 50);
 				} else {
 					// based on their stillness and settledness.
 					double accuracy = computeAccuracyFor(gun, bulletType, player);
@@ -323,6 +325,9 @@ public class Guns implements Listener {
 					Location origin = player.getLocation().clone().add(bbOff.getX(), offset, bbOff.getZ());
 					
 					Location baseLocation = player.getEyeLocation().clone();
+					Location kick = baseLocation.clone();
+					
+					double kickback = gun.getKickback();
 					
 					double minJitter = gun.getMinMissRadius() + bulletType.getMinMissRadius();
 					double maxJitter = gun.getMaxMissRadius() + bulletType.getMaxMissRadius();
@@ -344,8 +349,14 @@ public class Guns implements Listener {
 					float pitchJitter = (float) (((rand2 * (maxJitter - minJitter)) + Math.signum(rand2) * minJitter) * accuracy);
 					baseLocation.setYaw(baseLocation.getYaw() + yawJitter);
 					baseLocation.setPitch(baseLocation.getPitch() + pitchJitter);
+
+					float kickYaw = yawJitter + (float) (Math.signum(rand1) * kickback);
+					float kickPitch = pitchJitter + (float) (Math.signum(rand2) * kickback);
+					kick.setYaw(kick.getYaw() + kickYaw);
+					kick.setPitch(kick.getPitch() + kickPitch);
+
 					if (accuracy > 0.25) {
-						player.sendMessage(ChatColor.AQUA + gun.getName() + ChatColor.RED + " isn't easy to aim. Crouch and hold still to improve accuracy.");
+						player.sendMessage(ChatColor.AQUA + gun.getName() + ChatColor.RED + " isn't always easy to aim. Try running less, or crouch and hold still to improve accuracy.");
 					} else if (accuracy < 0.01) {
 						// TODO: remove
 						player.sendMessage(ChatColor.AQUA + gun.getName() + ChatColor.GREEN + " is shooting straight, good work.");
@@ -414,9 +425,11 @@ public class Guns implements Listener {
 					player.setCooldown(gun.getMinimalGun().getType(), (int) (gun.getCooldown() / 50));
 
 					// jerk player's view back and reset still
-					gun.knockback(player, baseLocation.getDirection());
+					gun.knockback(player, kick.getDirection());
 
 					AddGun.getPlugin().getPlayerListener().resetStillSince(player.getUniqueId());
+					// TODO: figure this stuff out like wtf
+					AddGun.getPlugin().getPlayerListener().recordShotImpact(player.getUniqueId(), gun.getInnateAim(), gun.getInnateAim() / ((gun.getCooldown()*2l) / 50), (int) (gun.getCooldown()*2l) / 50);
 				}
 			}
 		} else {
@@ -764,7 +777,7 @@ public class Guns implements Listener {
 	
 
 	/**
-	 * Internally computes jitter based only on stillness and sneakness.
+	 * Internally computes jitter based on many factors.
 	 * 
 	 * @param entity the entity's UUID to check
 	 * @return value from 0 to 1 where 1 is worse and 0 is best
@@ -772,34 +785,84 @@ public class Guns implements Listener {
 	private double computeAccuracyFor(UUID entity, StandardGun gun, Bullet bullet) {
 		long now = System.currentTimeMillis();
 		PlayerListener listener = AddGun.getPlugin().getPlayerListener();
+		
+		double gunroot = gun.getInnateMiss();
+		double root = gun.getInnateBase();
+		
 		Long sneak = listener.getSneakingSince(entity);
 		Long still = listener.getStillSince(entity);
+		Long notsneak = listener.getSneakingEnd(entity);
+		Long notstill = listener.getStillEnd(entity);
 		
+		// TODO: per-player adjustments.
 		double base = 1.0d;
-		if (sneak == null && still == null) { // not sneaking, not still.
-			return 1.0d;
+		if (sneak != null) {
+			// Sneaking reduces baseline impact
+			base -= 0.025d * (double) ((now - sneak) / 50l);
+		}
+		if (still != null) {
+			// Still reduces baseline impact
+			base -= 0.05d * (double) ((now - still) / 50l);
+		}
+		if (notsneak != null) {
+			// Not sneaking increases baseline impact
+			base += 0.025d * (double) ((now - notsneak) / 50l);
+		}
+		if (notstill != null) {
+			// Not still increases baseline impact.
+			base += 0.05d * (double) ((now - notstill) / 50l);
+		}
+		if (base < 0d) base = 0d;
+		if (base > 1d) base = 1d;
+		
+		root *= base; // so this is root.
+		
+		double pbase = 0.0d;
+		if (still != null) {
+			// If we are still, reduce "walk" impact.
+			pbase += 0.1d - 0.00005d * (double) (now - still);
+		} else if (notstill != null) {
+			// if we are moving, increase "walk" impact.
+			pbase += Math.min(0.1d, (0.0001d * (double) (now - notstill)));
 		}
 		
-		double combineSneakInflection = gun.getSneakInflection() + bullet.getSneakInflection();
-		if (combineSneakInflection < 0.0d) combineSneakInflection = 0.0d;
-		
-		double combineStillInflection = gun.getStillInflection() + bullet.getStillInflection();
-		if (combineStillInflection < 0.0d) combineStillInflection = 0.0d;
-		
-		double combineSneakSpread = gun.getSneakSpread() + bullet.getSneakSpread();
-		if (combineSneakSpread < 0.00001d) combineSneakSpread = 0.00001d;
-		
-		double combineStillSpread = gun.getStillSpread() + bullet.getStillSpread();
-		if (combineStillSpread < 0.00001d) combineStillSpread = 0.00001d;
-		
-		if (sneak != null) { // sneaking
-			base -= sigmoid((now - sneak) / 1000.0d, combineSneakInflection, 0.25d, combineSneakSpread);
+		Long notrun = listener.getSprintingEnd(entity);
+		Long run = listener.getSprintingSince(entity);
+		// if we were running, but stopped, linearly impact aim
+		if (notrun != null) {
+			pbase += 0.4d - (0.0001d * (double) (now - notrun));
+		} else if (run != null) {
+			// if we are running, aim is worsened, up to a max.
+			pbase += Math.min(0.4d, (0.001d * (double) (now - run)));
 		}
-		if (still != null) { // still
-			base -= sigmoid((now - still) / 1000.0d, combineStillInflection, 0.25d, combineStillSpread);
+		Long notglide = listener.getGlidingEnd(entity);
+		Long glide = listener.getGlidingSince(entity);
+		// Do the same for gliding
+		if (notglide != null) {
+			pbase += 0.7d - (0.0001d * (double) (now - notglide));
+		} else if (glide != null) {
+			pbase += Math.min(0.7d, (0.001d * (double) (now - glide)));
 		}
 		
-		return base > 0.0d ? base : 0.0d;
+		// now pull in any impact of prior shots.
+		pbase += listener.getShotImpact(entity);
+		
+		if (sneak != null) { // we are sneaking!
+			// so cut the impacts in half.
+			pbase /= 2d;
+		}
+		
+		// now add in base.
+		pbase += root;
+		// add in root.
+		pbase += gunroot;
+		
+		if (pbase > 1.0d) pbase = 1.0d;
+		if (pbase < 0.0d) pbase = 0.0d;
+		
+		return pbase; // accuracy is then computed.
+		
+		// TODO: These factors should be global...
 	}
 	
 	/**

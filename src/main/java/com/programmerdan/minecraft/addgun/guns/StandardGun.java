@@ -41,6 +41,8 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.metadata.MetadataValueAdapter;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.util.Vector;
 
@@ -245,26 +247,26 @@ public class StandardGun implements BasicGun {
 	 */
 	private boolean limitToOne = false;
 	
+	/**
+	 * How hard is this gun to aim, as a baseline
+	 */
+	private double innateMiss = 0.0;
 	
 	/**
-	 * The point at which, after so many seconds of "stillness" -- head motion only -- that any aim impacts are halved.
+	 * How hard is this gun to aim for first shot
 	 */
-	private double stillInflection = 7.5d;
-	/**
-	 * The point at which, after so many seconds of sneaking, any aim impacts are halved.
-	 */
-	private double sneakInflection = 7.5d;
-	/**
-	 * A relative "spread" of speed of motion over inflection, values close to 0 lead to a sharp inflection, values larger make a smoother
-	 * transition. Values of 2.5 to 8 are typical. This is for stillness.
-	 */
-	private double stillSpread = 2.5d;
-	/**
-	 * A relative "spread" of speed of motion over inflection, values close to 0 lead to a sharp inflection, values larger make a smoother
-	 * transition. Values of 2.5 to 8 are typical. This is for sneaking.
-	 */
-	private double sneakSpread = 2.5d;
+	private double innateBase = 0.0;
 	
+	/**
+	 * How much harder does it get after each shot (decays)
+	 */
+	private double innateAim = 0.0;
+	
+	/**
+	 * How much does the person's aim bounce each shot (beyond miss reticle)
+	 */
+	private double kickback = 0.0;
+
 	public StandardGun(String name) {
 		this.name = name;
 		tag = ChatColor.BLACK + "Gun: "
@@ -339,11 +341,12 @@ public class StandardGun implements BasicGun {
 			this.bluntDamage = config.getDouble("damage.blunt", bluntDamage);
 			this.maxMissRadius = config.getDouble("miss.radius.max", maxMissRadius);
 			this.minMissRadius = config.getDouble("miss.radius.min", minMissRadius);
-			this.stillInflection = config.getDouble("miss.still.inflection", stillInflection);
-			this.stillSpread = config.getDouble("miss.still.spread", stillSpread);
-			this.sneakInflection = config.getDouble("miss.sneak.inflection", sneakInflection);
-			this.sneakSpread = config.getDouble("miss.sneak.spread", sneakSpread);
-			
+
+			this.innateMiss = config.getDouble("miss.innate", innateMiss);
+			this.innateBase = config.getDouble("miss.base", innateBase);
+			this.innateAim = config.getDouble("miss.aim", innateAim);
+			this.kickback = config.getDouble("miss.kickback", kickback);
+
 			this.xpDraw = config.getInt("ammo.xp", 0);
 			if (this.xpDraw > 0) {
 				this.usesXP = true;
@@ -521,39 +524,39 @@ public class StandardGun implements BasicGun {
 	public void setLimitToOne(boolean limitToOne) {
 		this.limitToOne = limitToOne;
 	}
-
-	public double getStillInflection() {
-		return stillInflection;
-	}
-
-	public void setStillInflection(double stillInflection) {
-		this.stillInflection = stillInflection;
-	}
-
-	public double getSneakInflection() {
-		return sneakInflection;
-	}
-
-	public void setSneakInflection(double sneakInflection) {
-		this.sneakInflection = sneakInflection;
-	}
-
-	public double getStillSpread() {
-		return stillSpread;
-	}
-
-	public void setStillSpread(double stillSpread) {
-		this.stillSpread = stillSpread;
-	}
-
-	public double getSneakSpread() {
-		return sneakSpread;
-	}
-
-	public void setSneakSpread(double sneakSpread) {
-		this.sneakSpread = sneakSpread;
+	
+	public double getInnateMiss() {
+		return this.innateMiss;
 	}
 	
+	public void setInnateMiss(double innateMiss) {
+		this.innateMiss = innateMiss;
+	}
+	
+	public double getInnateBase() {
+		return this.innateBase;
+	}
+	
+	public void setInnateBase(double innateBase) {
+		this.innateBase = innateBase;
+	}
+	
+	public double getInnateAim() {
+		return this.innateAim;
+	}
+	
+	public void setInnateAim(double innateAim) {
+		this.innateAim = innateAim;
+	}
+	
+	public double getKickback() {
+		return this.kickback;
+	}
+	
+	public void setKickback(double kickback) {
+		this.kickback = kickback;
+	}
+
 	public String getName() {
 		return name;
 	}
@@ -927,6 +930,22 @@ public class StandardGun implements BasicGun {
 					}
 				}, 1l);
 				dbg.append("Created explosion ").append(bulletType.getExplosionLevel()).append(" on hit, without fire ");
+			}
+		}
+		
+		if (hit != null && !hit.isDead()) {
+			random = Math.random();
+			if (random < bulletType.getKnockbackChance()) {
+				random = bulletType.getKnockbackAvg() + bulletType.getKnockbackSpread() * Math.random() ;
+				// ignoring bulletType.getKnockbackIgnoreReduction for now
+				hit.setVelocity(bullet.getVelocity().clone().setY(0).normalize().multiply(random));
+				dbg.append("Applied knockback ").append(random).append(" on hit ");
+				if (hit instanceof LivingEntity) {
+					LivingEntity hitent = (LivingEntity) hit;
+					hitent.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 5, 1));
+					hitent.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, 10, 1));
+					dbg.append("with slowness and slow digging ");
+				}
 			}
 		}
 
