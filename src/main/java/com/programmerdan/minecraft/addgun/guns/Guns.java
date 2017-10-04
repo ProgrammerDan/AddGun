@@ -429,7 +429,9 @@ public class Guns implements Listener {
 
 					AddGun.getPlugin().getPlayerListener().resetStillSince(player.getUniqueId());
 					// TODO: figure this stuff out like wtf
-					AddGun.getPlugin().getPlayerListener().recordShotImpact(player.getUniqueId(), gun.getInnateAim(), gun.getInnateAim() / ((gun.getCooldown()*2l) / 50), (int) (gun.getCooldown()*2l) / 50);
+					AddGun.getPlugin().getPlayerListener().recordShotImpact(player.getUniqueId(), gun.getInnateAim(), 
+							gun.getInnateAim() / ((gun.getCooldown() * AddGun.getPlugin().getKickbackExpand()) / 50), 
+							(int) (gun.getCooldown() * AddGun.getPlugin().getKickbackExpand()) / 50);
 				}
 			}
 		} else {
@@ -783,12 +785,16 @@ public class Guns implements Listener {
 	 * @return value from 0 to 1 where 1 is worse and 0 is best
 	 */
 	private double computeAccuracyFor(UUID entity, StandardGun gun, Bullet bullet) {
+		AddGun plugin = AddGun.getPlugin();
 		long now = System.currentTimeMillis();
-		PlayerListener listener = AddGun.getPlugin().getPlayerListener();
-		
+		PlayerListener listener = plugin.getPlayerListener();
+		StringBuffer buff = new StringBuffer(entity.toString());
 		double gunroot = gun.getInnateMiss();
-		double root = gun.getInnateBase();
+		buff.append(" firing ").append(gun.getName()).append(" with " ).append(bullet.getName())
+				.append(String.format("\n ROOT: %.5f", gunroot));
 		
+		double root = gun.getInnateBase();
+		buff.append(String.format("\n BASE: %.5f", root));
 		Long sneak = listener.getSneakingSince(entity);
 		Long still = listener.getStillSince(entity);
 		Long notsneak = listener.getSneakingEnd(entity);
@@ -798,59 +804,67 @@ public class Guns implements Listener {
 		double base = 1.0d;
 		if (sneak != null) {
 			// Sneaking reduces baseline impact
-			base -= 0.025d * (double) ((now - sneak) / 50l);
+			base -= plugin.getAccuracySneaking() * (double) ((now - sneak) / 50l);
 		}
 		if (still != null) {
 			// Still reduces baseline impact
-			base -= 0.05d * (double) ((now - still) / 50l);
+			base -= plugin.getAccuracyStill() * (double) ((now - still) / 50l);
 		}
 		if (notsneak != null) {
 			// Not sneaking increases baseline impact
-			base += 0.025d * (double) ((now - notsneak) / 50l);
+			base += plugin.getAccuracySneaking() * (double) ((now - notsneak) / 50l);
 		}
 		if (notstill != null) {
 			// Not still increases baseline impact.
-			base += 0.05d * (double) ((now - notstill) / 50l);
+			base += plugin.getAccuracyStill() * (double) ((now - notstill) / 50l);
 		}
 		if (base < 0d) base = 0d;
 		if (base > 1d) base = 1d;
 		
 		root *= base; // so this is root.
 		
+		buff.append(String.format(" adj to %.5f", root));
+		
 		double pbase = 0.0d;
 		if (still != null) {
 			// If we are still, reduce "walk" impact.
-			pbase += 0.1d - 0.00005d * (double) (now - still);
+			pbase += Math.max(0d, plugin.getWalkingBase() - plugin.getWalkingReduce() * (double) (now - still));
 		} else if (notstill != null) {
 			// if we are moving, increase "walk" impact.
-			pbase += Math.min(0.1d, (0.0001d * (double) (now - notstill)));
+			pbase += Math.min(plugin.getWalkingBase(), (plugin.getWalkingIncrease() * (double) (now - notstill)));
 		}
+		buff.append(String.format("\n WALK: %.5f", pbase));
 		
 		Long notrun = listener.getSprintingEnd(entity);
 		Long run = listener.getSprintingSince(entity);
 		// if we were running, but stopped, linearly impact aim
 		if (notrun != null) {
-			pbase += 0.4d - (0.0001d * (double) (now - notrun));
+			pbase += Math.max(0d, plugin.getRunningBase() - plugin.getRunningReduce() * (double) (now - notrun));
 		} else if (run != null) {
 			// if we are running, aim is worsened, up to a max.
-			pbase += Math.min(0.4d, (0.001d * (double) (now - run)));
+			pbase += Math.min(plugin.getRunningBase(), (plugin.getRunningIncrease() * (double) (now - run)));
 		}
+		buff.append(String.format(" RUN: %.5f", pbase));
+		
 		Long notglide = listener.getGlidingEnd(entity);
 		Long glide = listener.getGlidingSince(entity);
 		// Do the same for gliding
 		if (notglide != null) {
-			pbase += 0.7d - (0.0001d * (double) (now - notglide));
+			pbase += Math.max(0d, plugin.getGlidingBase() - plugin.getGlidingReduce() * (double) (now - notglide));
 		} else if (glide != null) {
-			pbase += Math.min(0.7d, (0.001d * (double) (now - glide)));
+			pbase += Math.min(plugin.getGlidingBase(), (plugin.getGlidingIncrease() * (double) (now - glide)));
 		}
+		buff.append(String.format(" GLIDE: %.5f", pbase));
 		
 		// now pull in any impact of prior shots.
 		pbase += listener.getShotImpact(entity);
+		buff.append(String.format("\n SHOTS: %.5f", pbase));
 		
 		if (sneak != null) { // we are sneaking!
 			// so cut the impacts in half.
-			pbase /= 2d;
+			pbase *= plugin.getCrouchReduce();
 		}
+		buff.append(String.format(" CROUCH: %.5f", pbase));
 		
 		// now add in base.
 		pbase += root;
@@ -860,9 +874,9 @@ public class Guns implements Listener {
 		if (pbase > 1.0d) pbase = 1.0d;
 		if (pbase < 0.0d) pbase = 0.0d;
 		
+		buff.append(String.format("\n FINAL: %.5f", pbase));
+		AddGun.getPlugin().debug(buff.toString());
 		return pbase; // accuracy is then computed.
-		
-		// TODO: These factors should be global...
 	}
 	
 	/**

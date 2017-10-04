@@ -15,6 +15,7 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.craftbukkit.v1_12_R1.entity.CraftProjectile;
@@ -31,6 +32,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -54,6 +56,7 @@ import com.programmerdan.minecraft.addgun.ammo.Bullet;
 import com.programmerdan.minecraft.addgun.ammo.Magazine;
 import com.programmerdan.minecraft.addgun.events.LoadGunEvent;
 
+import net.minecraft.server.v1_12_R1.BlockPosition;
 import net.minecraft.server.v1_12_R1.EntityProjectile;
 
 import static com.programmerdan.minecraft.addgun.guns.Utilities.getArmorType;
@@ -266,6 +269,11 @@ public class StandardGun implements BasicGun {
 	 * How much does the person's aim bounce each shot (beyond miss reticle)
 	 */
 	private double kickback = 0.0;
+	
+	/**
+	 * To simplify breakables, we just deal with it universally.
+	 */
+	private ConcurrentHashMap<UUID, Long> breakableTimeouts = new ConcurrentHashMap<>();
 
 	public StandardGun(String name) {
 		this.name = name;
@@ -960,6 +968,32 @@ public class StandardGun implements BasicGun {
 		
 		if (hit == null) {
 			world.spawnParticle(Particle.EXPLOSION_NORMAL, loc, 50, 1.0, 1.0, 1.0, 0.1);
+			
+			// Check if we can break it.
+			Block block = loc.getBlock();
+			if (block != null && bullet.getShooter() instanceof Player) {
+				Player player = (Player) bullet.getShooter();
+				Long breakit = AddGun.getPlugin().getBreakableCooldown(block.getType());
+				if (breakit != null) {
+					Long nextHit = this.breakableTimeouts.get(player.getUniqueId());
+					if (nextHit == null || System.currentTimeMillis() > nextHit) {
+						Bukkit.getScheduler().runTaskLater(AddGun.getPlugin(), new Runnable() {
+							@Override
+							public void run() {
+								BlockBreakEvent bbe = new BlockBreakEvent(block, player);
+								Bukkit.getPluginManager().callEvent(bbe);
+								if (!bbe.isCancelled()) {
+									AddGun.getPlugin().debug("Broke a {0}", block);
+									block.setType(Material.AIR);
+								} else {
+									AddGun.getPlugin().debug("Tried to break a {0}", block);
+								}
+							}
+						}, 0l);
+						this.breakableTimeouts.put(player.getUniqueId(), System.currentTimeMillis() + breakit.longValue());
+					}
+				}
+			}
 		}
 	}
 

@@ -13,6 +13,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.event.Listener;
@@ -43,6 +44,24 @@ public class AddGun  extends JavaPlugin {
 	
 	private int xpPerBottle;
 	
+	private int kickbackExpand;
+
+	private double accuracySneaking;
+	private double accuracyStill;
+	private double walkingBase;
+	private double walkingReduce;
+	private double walkingIncrease;
+	private double runningBase;
+	private double runningReduce;
+	private double runningIncrease;
+	private double glidingBase;
+	private double glidingReduce;
+	private double glidingIncrease;
+	private double crouchReduce;
+	
+	
+	private ConcurrentHashMap<Material, Long> breakables;
+	
 	@Override
 	public void onEnable() {
 		super.onEnable();
@@ -72,6 +91,56 @@ public class AddGun  extends JavaPlugin {
 	
 	public int getXpPerBottle() {
 		return xpPerBottle;
+	}
+	
+	public int getKickbackExpand() {
+		return kickbackExpand;
+	}
+	
+	public double getAccuracySneaking() {
+		return this.accuracySneaking;
+	}
+	
+	public double getAccuracyStill() {
+		return this.accuracyStill;
+	}
+	
+	public double getCrouchReduce() {
+		return this.crouchReduce;
+	}
+	
+	public double getWalkingBase() {
+		return this.walkingBase;
+	}
+	public double getWalkingReduce() {
+		return this.walkingReduce;
+	}
+	public double getWalkingIncrease() {
+		return this.walkingIncrease;
+	}
+	
+	public double getRunningBase() {
+		return this.runningBase;
+	}
+	public double getRunningReduce() {
+		return this.runningReduce;
+	}
+	public double getRunningIncrease() {
+		return this.runningIncrease;
+	}
+	
+	public double getGlidingBase() {
+		return this.glidingBase;
+	}
+	public double getGlidingReduce() {
+		return this.glidingReduce;
+	}
+	public double getGlidingIncrease() {
+		return this.glidingIncrease;
+	}
+	
+	public Long getBreakableCooldown(Material type) {
+		return breakables.get(type);
 	}
 	
 	public PlayerListener getPlayerListener() {
@@ -158,10 +227,56 @@ public class AddGun  extends JavaPlugin {
 
 	private void config(FileConfiguration config) {
 		ConfigurationSection global = config.getConfigurationSection("global");
+		this.breakables = new ConcurrentHashMap<Material, Long>();
 		if (global != null) {
 			this.xpPerBottle = global.getInt("xpPerBottle", 10);
+			this.kickbackExpand = global.getInt("kickback.expand", 4);
+
+			if (global.isConfigurationSection("breakables")) {
+				ConfigurationSection breaks = global.getConfigurationSection("breakables");
+				for (String key : breaks.getKeys(false)) {
+					try {
+						Material mkey = Material.valueOf(key);
+						
+						this.breakables.put(mkey, global.getLong(key));
+						warning("Adding breakable {0} with cooldown of {1}", key, global.getLong(key));
+					} catch (Exception e) {
+						warning("Skipping breakable {0} due to no matching Material found.", key);
+					}
+				}
+			}
+			this.accuracySneaking = global.getDouble("accuracy.sneaking", 0.025d);
+			this.accuracyStill = global.getDouble("accuracy.still", 0.05d);
+			
+			this.walkingBase = global.getDouble("accuracy.walking.base", 0.1d);
+			this.runningBase = global.getDouble("accuracy.running.base", 0.4d);
+			this.glidingBase = global.getDouble("accuracy.gliding.base", 0.7d);
+			
+			this.walkingReduce = global.getDouble("accuracy.walking.reduce", 0.00005d);
+			this.walkingIncrease = global.getDouble("accuracy.walking.increase", 0.0001d);
+			
+			this.runningReduce = global.getDouble("accuracy.running.reduce", 0.0001d);
+			this.runningIncrease = global.getDouble("accuracy.running.increase", 0.001d);
+
+			this.glidingReduce = global.getDouble("accuracy.gliding.reduce", 0.0001d);
+			this.glidingIncrease = global.getDouble("accuracy.gliding.increase", 0.001d);
+
+			this.crouchReduce = global.getDouble("accuracy.crouch-reduce", 0.5d);
 		} else {
 			this.xpPerBottle = 10;
+			this.kickbackExpand = 4;
+			this.accuracySneaking = 0.025d;
+			this.accuracyStill = 0.05d;
+			this.walkingBase = 0.1d;
+			this.walkingReduce = 0.00005d;
+			this.walkingIncrease = 0.0001d;
+			this.runningBase = 0.4d;
+			this.runningReduce = 0.0001d;
+			this.runningIncrease = 0.001d;
+			this.glidingBase = 0.7d;
+			this.glidingReduce = 0.0001d;
+			this.glidingIncrease = 0.001d;
+			this.crouchReduce = 0.5d;
 		}
 
 	}

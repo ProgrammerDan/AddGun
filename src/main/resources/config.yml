@@ -20,6 +20,41 @@ global:
    give: true
   repair:
    give: false
+ kickback:
+  expand: 4 # how long the kickback's aim impact lasts beyond firing, in multiples of weapon cooldown.
+ accuracy:
+  # each gun has a difficulty to aim, that is its baseline miss -- sneaking and stillness reduce that (stabilize you).
+  sneaking: 0.025 # per tick % reduction to baseline impact
+  still: 0.05 # per tick % reduction
+  # movement makes it harder to aim, and these effects increase up to a stable point and do not incease past it, depending
+  # on mode of movement. The impacts do aggregate. 
+  walking:
+   base: 0.1 # max impact of walking on aim -- walking moves us towards this, not walking, away.
+   reduce: 0.00005 # per ms adjustment
+   increase: 0.0001 # per ms adjustment
+  running:
+   base: 0.4 # max impact of running on aim -- running moves us towards this, not running, away.
+   reduce: 0.0001 # per ms not running adjust
+   increase: 0.001 # per ms running adjust
+  gliding:
+   base: 0.7 # max impact of gliding on aim -- gliding moves us towards this, not gliding, away.
+   reduce: 0.0001 # per ms not gliding adjust
+   increase: 0.001 # per ms gliding adjust
+  crouch-reduce: 0.5 # % of above impacts to instantly reduce if player crouches
+  # The movement "hardness increase" is added to whatever fraction of baseline miss, which is added to the gun's "intrinsic" innaccuracy, and
+  # finally the active kickback summation is applied.
+  # This is then mapped to a random number, which controls the resulting hit tightness.
+ breakables: # These things can be directly damaged by gunfire. The value is ms between accepted hits, for blocks that have protection.
+  GLASS: 250 # This delay is entity-global -- so basically, no more hits are registered for that person until the cooldown is achieved.
+  THIN_GLASS: 250
+  BREWING_STAND: 250
+  CAKE_BLOCK: 50
+  CHEST: 250
+  ICE: 250
+  MELON_BLOCK: 50
+  PUMPKIN: 50
+  SNOW_BLOCK: 250
+  GLOWSTONE: 250
 bullets:
  Lead Slug:
   type: SNOWBALL

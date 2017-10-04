@@ -14,7 +14,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -90,6 +92,8 @@ public class PlayerListener implements Listener {
 	private Map<UUID, ScheduledFuture<?>> activeShotTasks = new ConcurrentHashMap<>();
 	private Map<UUID, ShotTracker> activeShotTrackers = new ConcurrentHashMap<>();
 	
+	private Map<UUID, ScheduledFuture<?>> activeStillTasks = new ConcurrentHashMap<>();
+	
 	public PlayerListener(FileConfiguration config) {
 		plugin = AddGun.getPlugin();
 		scheduler = Executors.newScheduledThreadPool(50);
@@ -138,25 +142,30 @@ public class PlayerListener implements Listener {
 	 * @param ticks
 	 */
 	public void recordShotImpact(UUID player, double impact, double decay, int ticks) {
+		StringBuffer record = new StringBuffer(player.toString());
 		ShotTracker tracker = activeShotTrackers.compute(player, (u, s) -> {
 			ShotTracker shotTracker = s;
 			if (s == null) {
 				shotTracker = new ShotTracker();
+				record.append(" new ST");
 			}
 			shotTracker.addShot(impact, decay, ticks);
-			
+			record.append(String.format(" add %.5f %.5f %d", impact, decay, ticks));
 			return shotTracker;
 		});
 		
 		if (tracker != null) {
 			activeShotTasks.compute(player, (p, s) -> {
 				if (s == null || (s != null && s.isDone())) {
+					record.append(" new scheduler");
 					return scheduler.scheduleAtFixedRate(tracker, 50l, 50l, TimeUnit.MILLISECONDS); // we "do by ticks"
 				} else {
+					record.append(" scheduler active");
 					return s;
 				}
 			});
 		}
+		AddGun.getPlugin().debug(record.toString());
 	}
 	
 	/**
@@ -360,12 +369,20 @@ public class PlayerListener implements Listener {
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
 	public void playerMoveEvent(PlayerMoveEvent event) {
 		Player player = event.getPlayer();
-		if (event.getFrom().distanceSquared(event.getTo()) <= .000001) {
+		if (event.getFrom().getWorld().equals(event.getTo().getWorld()) &&
+				event.getFrom().distanceSquared(event.getTo()) <= .000001) {
 			stillSince.computeIfAbsent(player.getUniqueId(), u -> {
 				//if (event.getPlayer().hasPermission("addgun.data")) { event.getPlayer().sendMessage(ChatColor.GOLD + " still started"); }
 				return System.currentTimeMillis(); 
 			});
 			stillEnd.remove(player.getUniqueId());
+			
+			activeStillTasks.computeIfPresent(player.getUniqueId(), (u, f) -> {
+				if (f != null && !f.isDone()) {
+					f.cancel(true);
+				}
+				return null;
+			});
 		} else {
 			/*if (stillSince.containsKey(event.getPlayer().getUniqueId()) && event.getPlayer().hasPermission("addgun.data")) {
 				event.getPlayer().sendMessage(ChatColor.GOLD + " still cleared");
@@ -373,6 +390,30 @@ public class PlayerListener implements Listener {
 			stillSince.remove(player.getUniqueId());
 			stillEnd.computeIfAbsent(player.getUniqueId(), u -> {
 				return System.currentTimeMillis(); 
+			});
+			activeStillTasks.compute(player.getUniqueId(), (u, f) -> {
+				if (f != null && !f.isDone()) {
+					f.cancel(true);
+					
+				}
+				return scheduler.schedule(new Runnable() {
+					final Location last = event.getTo().clone();
+					final UUID uuid = player.getUniqueId();
+					@Override
+					public void run() {
+						Player player = Bukkit.getPlayer(uuid);
+						if (player != null) {
+							Location now = player.getLocation();
+							if (now.getWorld().equals(last.getWorld()) &&
+									now.distanceSquared(last) <= .000001) {
+								stillSince.computeIfAbsent(uuid, u -> {
+									return System.currentTimeMillis() - 250l; 
+								});
+								stillEnd.remove(player.getUniqueId());
+							}
+						}
+					}
+				}, 250l, TimeUnit.MILLISECONDS);
 			});
 		}
 	}

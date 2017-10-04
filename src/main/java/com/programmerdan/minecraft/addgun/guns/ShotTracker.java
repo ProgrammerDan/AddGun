@@ -50,6 +50,7 @@ public class ShotTracker implements Runnable {
 		public double decay() {
 			if (ticksLeft > 0) {
 				this.aimOffset -= this.decay;
+				if (this.aimOffset < 0d) this.aimOffset = 0.0d;
 				this.ticksLeft --;
 			} else {
 				this.aimOffset = 0.0d;
