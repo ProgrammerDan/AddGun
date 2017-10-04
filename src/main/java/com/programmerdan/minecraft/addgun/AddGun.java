@@ -238,8 +238,8 @@ public class AddGun  extends JavaPlugin {
 					try {
 						Material mkey = Material.valueOf(key);
 						
-						this.breakables.put(mkey, global.getLong(key));
-						warning("Adding breakable {0} with cooldown of {1}", key, global.getLong(key));
+						this.breakables.put(mkey, breaks.getLong(key));
+						warning("Adding breakable {0} with cooldown of {1}", key, breaks.getLong(key));
 					} catch (Exception e) {
 						warning("Skipping breakable {0} due to no matching Material found.", key);
 					}

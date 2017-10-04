@@ -33,6 +33,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -980,7 +981,7 @@ public class StandardGun implements BasicGun {
 						Bukkit.getScheduler().runTaskLater(AddGun.getPlugin(), new Runnable() {
 							@Override
 							public void run() {
-								BlockBreakEvent bbe = new BlockBreakEvent(block, player);
+								EntityChangeBlockEvent bbe = new EntityChangeBlockEvent(bullet, block, Material.AIR, (byte) 0);
 								Bukkit.getPluginManager().callEvent(bbe);
 								if (!bbe.isCancelled()) {
 									AddGun.getPlugin().debug("Broke a {0}", block);
